@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon-32.png" alt="" width="22" height="22" />
+      <strong>Job Tracker</strong>
+      <a id="openApp" href="#" class="muted small" hidden>Open tracker ↗</a>
+    </header>
+
+    <!-- 1. First run: where is the app? -->
+    <section id="setup" hidden>
+      <p class="muted">Paste the link of your deployed tracker (Vercel / Netlify).</p>
+      <label>App URL <input id="appUrl" type="url" placeholder="https://your-tracker.vercel.app" /></label>
+      <button id="saveUrl" class="primary">Connect</button>
+      <p id="setupMsg" class="msg"></p>
+    </section>
+
+    <!-- 2. Sign in -->
+    <section id="login" hidden>
+      <p class="muted">Sign in with the same account you use on the web app.</p>
+      <label>Email <input id="email" type="email" autocomplete="email" /></label>
+      <label>Password <input id="password" type="password" autocomplete="current-password" /></label>
+      <button id="signIn" class="primary">Sign in</button>
+      <p id="loginMsg" class="msg"></p>
+      <button id="changeUrl" class="link small">Change app URL</button>
+    </section>
+
+    <!-- 3. Main -->
+    <section id="main" hidden>
+      <div class="card">
+        <div class="row between">
+          <span class="label">This page</span>
+          <span id="tracked" class="pill" hidden></span>
+        </div>
+        <label>Role <input id="title" /></label>
+        <label>Company <input id="company" /></label>
+        <label>Location <input id="location" /></label>
+        <label>
+          Status
+          <select id="status">
+            <option value="saved">Saved</option>
+            <option value="applied">Applied</option>
+            <option value="interview">Interview</option>
+            <option value="offer">Offer</option>
+            <option value="rejected">Rejected</option>
+            <option value="ghosted">Ghosted</option>
+          </select>
+        </label>
+        <div class="row gap">
+          <button id="save" class="primary grow">Save job</button>
+          <button id="tailor" class="ghost" title="Open in tracker to tailor your experience">✨ Tailor</button>
+        </div>
+        <p id="saveMsg" class="msg"></p>
+      </div>
+
+      <button id="autofill" class="secondary full">⚡ Autofill this form <span class="kbd">⌥⇧F</span></button>
+      <p id="fillMsg" class="msg"></p>
+
+      <footer>
+        <label class="toggle"><input id="autoTrack" type="checkbox" /> Auto-add jobs when I submit an application</label>
+        <div class="row between small muted">
+          <span id="who"></span>
+          <button id="signOut" class="link small">Sign out</button>
+        </div>
+      </footer>
+    </section>
+
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

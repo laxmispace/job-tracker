@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Browser extension is plain JS loaded unpacked; not part of the Next build.
+    "extension/**",
   ]),
 ]);
 
