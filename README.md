@@ -16,20 +16,23 @@ Track every application as a card, fill application forms from your own answers 
 3. **Project Settings → API**: copy the **Project URL** and the **anon / publishable key**.
 4. **Authentication → URL Configuration**: set **Site URL** to your deployed app URL (after step 4). Email sign-up is on by default; turn off *Confirm email* under **Authentication → Providers → Email** if you don't want the confirmation step.
 
-## 2. AI key
+## 2. AI keys — add several, switch any time
 
-Set these server-side env vars (never in the browser, never in the extension):
+Add one env var per provider you want (Vercel → Project → Settings → Environment Variables, then redeploy). Keys stay on the server.
 
-| Provider | `AI_PROVIDER` | Where to get a key | Default model |
+| Provider | Env var | Where to get a key | Default model |
 |---|---|---|---|
-| Google Gemini (has a free tier) | `gemini` | aistudio.google.com → Get API key | `gemini-3.8-flash` |
-| DeepSeek (pay-as-you-go, cheap) | `deepseek` | platform.deepseek.com | `deepseek-flash` |
-| Qwen (Alibaba Cloud, international) | `qwen` | Model Studio / DashScope | `qwen-plus` |
-| OpenRouter (has `:free` models incl. DeepSeek/Qwen/Kimi) | `openrouter` | openrouter.ai/keys | set `AI_MODEL` |
-| Groq (free tier, hosts Qwen/Kimi) | `groq` | console.groq.com | set `AI_MODEL` |
-| Ollama on your Mac (only when running locally) | `ollama` | — | `qwen3:8b` |
+| Google Gemini (free tier) | `GEMINI_API_KEY` | aistudio.google.com/apikey | `gemini-3.8-flash` |
+| DeepSeek (pay-as-you-go, cheap) | `DEEPSEEK_API_KEY` | platform.deepseek.com | `deepseek-flash` |
+| Qwen (Alibaba Cloud) | `QWEN_API_KEY` | Model Studio | `qwen-plus` |
+| OpenRouter (free `:free` models incl. DeepSeek/Qwen/Kimi) | `OPENROUTER_API_KEY` | openrouter.ai/keys | pick in AI settings |
+| Groq (free tier) | `GROQ_API_KEY` | console.groq.com/keys | pick in AI settings |
+| Ollama on your Mac (local dev only) | `OLLAMA_BASE_URL` | ollama.com | `qwen3:8b` |
+| Anything else OpenAI-compatible | `CUSTOM_BASE_URL` + `CUSTOM_API_KEY` + `CUSTOM_MODEL` | — | — |
 
-Override the model any time with `AI_MODEL`. For any other OpenAI-compatible endpoint (Moonshot/Kimi, Zhipu GLM…) set `AI_BASE_URL` + `AI_MODEL` + `AI_API_KEY`.
+**Switching:** use the **✨ dropdown** in the app header (every page, phone too) or in the extension popup. **AI settings** lets you pick each provider's model from its live model list (free ones are tagged), test a key, and turn **automatic fallback** on or off. With fallback on, if your chosen model hits a rate limit or fails, the next configured one answers, and the card shows which model did the work.
+
+**Context never gets lost:** every request, to every model, starts with the same *role brief* (what the app is, what the model's job is, the no-fabrication rules), then your **standing instructions** from AI settings, then your data (answers bank, experience, the job description, and anything already prepared for that job). The context lives in the app, not inside any one model, so you can switch mid-task. The brief is `APP_SKILL` in `src/lib/server/ai.ts`; you can read it in AI settings.
 
 ## 3. Run locally
 
@@ -76,9 +79,9 @@ What it does:
 
 ```
 supabase/schema.sql         tables, row-level security, resume bucket
-src/app/                    pages: / (cards), /jobs/[id], /answers, /experience, /share
-src/app/api/                fetch-job, ai/{tailor,answer,extract,import-experience}, config, keepalive
+src/app/                    pages: / (cards), /jobs/[id], /answers, /experience, /settings, /share
+src/app/api/                fetch-job, ai/{tailor,answer,extract,import-experience,providers}, config, keepalive
 src/lib/seed-questions.ts   the default answers bank (questions + matching phrases)
-src/lib/server/ai.ts        provider switch + prompts
+src/lib/server/ai.ts        providers, fallback, the app role brief (APP_SKILL), prompts
 extension/                  Manifest V3 extension (no build step)
 ```

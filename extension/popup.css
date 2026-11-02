@@ -177,3 +177,16 @@ footer {
 .toggle input {
   width: auto;
 }
+
+.model {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--fg);
+  font-weight: 600;
+}
+.model select {
+  width: 62%;
+  font-weight: 400;
+}

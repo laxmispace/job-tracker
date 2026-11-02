@@ -1,7 +1,7 @@
 import { canonicalUrl } from "@/lib/job-url";
-import { AIError, ANSWER_SYSTEM, chat } from "@/lib/server/ai";
+import { AIError, ANSWER_SYSTEM, chat, prefsFrom } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
-import type { Answer, Experience } from "@/lib/types";
+import type { Answer, Experience, Tailored } from "@/lib/types";
 
 export const OPTIONS = preflight;
 export const maxDuration = 60;
@@ -14,7 +14,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
-  const { db } = auth;
+  const { db, user } = auth;
 
   const body = (await req.json().catch(() => ({}))) as {
     question?: string;
@@ -26,11 +26,11 @@ export async function POST(req: Request) {
   const question = (body.question ?? "").trim();
   if (!question) return json({ error: "Missing question." }, 400);
 
-  let job: { title: string; company: string; description: string | null } | null = null;
+  let job: { title: string; company: string; description: string | null; tailored: Tailored | null } | null = null;
   if (body.jobId) {
-    job = (await db.from("jobs").select("title,company,description").eq("id", body.jobId).maybeSingle()).data;
+    job = (await db.from("jobs").select("title,company,description,tailored").eq("id", body.jobId).maybeSingle()).data;
   } else if (body.url) {
-    job = (await db.from("jobs").select("title,company,description").eq("url", canonicalUrl(body.url)).maybeSingle()).data;
+    job = (await db.from("jobs").select("title,company,description,tailored").eq("url", canonicalUrl(body.url)).maybeSingle()).data;
   }
 
   const [{ data: answers }, { data: exps }] = await Promise.all([
@@ -53,6 +53,11 @@ JOB: ${job ? `${job.title} at ${job.company}` : "(unknown)"}
 JOB DESCRIPTION:
 ${(job?.description || body.pageContext || "(not available)").slice(0, 8000)}
 
+${
+  job?.tailored
+    ? `ALREADY PREPARED FOR THIS JOB (stay consistent with it):\nSummary: ${job.tailored.summary}\nKeywords: ${job.tailored.keywords.join(", ")}\n`
+    : ""
+}
 MY PROFILE ANSWERS:
 ${profile || "(none)"}
 
@@ -60,8 +65,8 @@ MY EXPERIENCE:
 ${experience || "(none)"}`;
 
   try {
-    const answer = await chat(ANSWER_SYSTEM, prompt, { temperature: 0.5 });
-    return json({ answer });
+    const r = await chat(ANSWER_SYSTEM, prompt, { temperature: 0.5, prefs: prefsFrom(user) });
+    return json({ answer: r.data, provider: r.label, model: r.model });
   } catch (e) {
     return json({ error: e instanceof AIError ? e.message : `AI request failed: ${(e as Error).message}` }, 502);
   }

@@ -1,4 +1,4 @@
-import { AIError, EXTRACT_SYSTEM, chatJSON } from "@/lib/server/ai";
+import { AIError, EXTRACT_SYSTEM, chatJSON, prefsFrom } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
 
 export const OPTIONS = preflight;
@@ -13,8 +13,8 @@ export async function POST(req: Request) {
   if (!text || text.trim().length < 40) return json({ error: "Paste more of the job posting text." }, 400);
 
   try {
-    const out = await chatJSON<Record<string, string>>(EXTRACT_SYSTEM, text.slice(0, 20000));
-    return json(out);
+    const r = await chatJSON<Record<string, string>>(EXTRACT_SYSTEM, text.slice(0, 20000), { prefs: prefsFrom(auth.user) });
+    return json(r.data);
   } catch (e) {
     return json({ error: e instanceof AIError ? e.message : `AI request failed: ${(e as Error).message}` }, 502);
   }

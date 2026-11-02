@@ -1,4 +1,4 @@
-import { AIError, TAILOR_SYSTEM, chatJSON } from "@/lib/server/ai";
+import { AIError, TAILOR_SYSTEM, chatJSON, prefsFrom } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
 import type { Experience, Tailored } from "@/lib/types";
 
@@ -13,7 +13,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
-  const { db } = auth;
+  const { db, user } = auth;
 
   const body = (await req.json().catch(() => ({}))) as {
     jobId?: string;
@@ -63,13 +63,18 @@ ${JSON.stringify(
 )}`;
 
   try {
-    const out = await chatJSON<Omit<Tailored, "generated_at">>(TAILOR_SYSTEM, prompt);
+    const r = await chatJSON<Omit<Tailored, "generated_at" | "provider" | "model">>(TAILOR_SYSTEM, prompt, {
+      prefs: prefsFrom(user),
+    });
+    const out = r.data;
     const tailored: Tailored = {
       keywords: out.keywords ?? [],
       missing_keywords: out.missing_keywords ?? [],
       summary: out.summary ?? "",
       experiences: (out.experiences ?? []).map((x) => ({ ...x, bullets: x.bullets ?? [] })),
       generated_at: new Date().toISOString(),
+      provider: r.label,
+      model: r.model,
     };
     if (body.jobId) await db.from("jobs").update({ tailored }).eq("id", body.jobId);
     return json({ tailored });

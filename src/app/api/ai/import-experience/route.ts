@@ -1,4 +1,4 @@
-import { AIError, chatJSON } from "@/lib/server/ai";
+import { AIError, chatJSON, prefsFrom } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
 
 export const OPTIONS = preflight;
@@ -15,8 +15,8 @@ export async function POST(req: Request) {
   const { text } = (await req.json().catch(() => ({}))) as { text?: string };
   if (!text || text.trim().length < 80) return json({ error: "Paste your resume's experience section." }, 400);
   try {
-    const out = await chatJSON<{ experiences: unknown[] }>(SYSTEM, text.slice(0, 20000));
-    return json({ experiences: out.experiences ?? [] });
+    const r = await chatJSON<{ experiences: unknown[] }>(SYSTEM, text.slice(0, 20000), { prefs: prefsFrom(auth.user) });
+    return json({ experiences: r.data.experiences ?? [] });
   } catch (e) {
     return json({ error: e instanceof AIError ? e.message : `AI request failed: ${(e as Error).message}` }, 502);
   }

@@ -227,6 +227,31 @@ async function handleApplied(job, tab) {
   return { job: saved };
 }
 
+// ─────────────────────── AI model switcher ────────────────────────
+// Same setting as the web app's dropdown (stored on the Supabase user).
+async function aiState() {
+  const { appUrl } = await getConfig();
+  const s = await requireSession();
+  const res = await fetch(appUrl + "/api/ai/providers", { headers: { Authorization: "Bearer " + s.access_token } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Couldn't load AI models");
+  return {
+    active: data.active,
+    providers: (data.providers || []).filter((p) => p.configured).map((p) => ({ id: p.id, label: p.label, model: p.model })),
+  };
+}
+
+async function setAiProvider(id) {
+  const { supabaseUrl, supabaseAnonKey } = await getConfig();
+  const s = await requireSession();
+  const headers = { apikey: supabaseAnonKey, Authorization: "Bearer " + s.access_token, "Content-Type": "application/json" };
+  const user = await fetch(supabaseUrl + "/auth/v1/user", { headers }).then((r) => r.json());
+  const ai = { ...((user.user_metadata && user.user_metadata.ai) || {}), provider: id };
+  const res = await fetch(supabaseUrl + "/auth/v1/user", { method: "PUT", headers, body: JSON.stringify({ data: { ai } }) });
+  if (!res.ok) throw new Error("Couldn't switch model");
+  return { active: id };
+}
+
 // ───────────────────────────── router ─────────────────────────────
 const handlers = {
   async state() {
@@ -244,6 +269,8 @@ const handlers = {
   answers: (m) => getAnswers(m.force),
   resume: () => getResume(),
   aiAnswer: (m) => appApi("/api/ai/answer", m.payload),
+  aiState: () => aiState(),
+  setAiProvider: (m) => setAiProvider(m.id),
   pageJob: (m, sender) => rememberTabJob(sender.tab && sender.tab.id, m.job).then(() => ({ ok: true })),
   applied: (m, sender) => handleApplied(m.job, sender.tab),
 };

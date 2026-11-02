@@ -27,8 +27,29 @@ async function init() {
   show("main");
   $("who").textContent = state.email;
   $("autoTrack").checked = state.autoTrack !== false;
+  loadModels();
   await loadPage();
 }
+
+async function loadModels() {
+  const r = await bg({ type: "aiState" });
+  const sel = $("aiModel");
+  if (!r.ok || !r.data.providers.length) {
+    sel.innerHTML = `<option>${r.ok ? "No AI key yet — add one in the app" : "Couldn't load models"}</option>`;
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = r.data.providers
+    .map((p) => `<option value="${p.id}">${p.label}${p.model ? " · " + p.model : ""}</option>`)
+    .join("");
+  sel.value = r.data.active || r.data.providers[0].id;
+}
+
+$("aiModel").onchange = async (e) => {
+  const r = await bg({ type: "setAiProvider", id: e.target.value });
+  say("fillMsg", r.ok ? "Model switched — used for AI answers on forms." : r.error, r.ok ? "ok" : "err");
+};
 
 async function talkToTab(msg) {
   try {

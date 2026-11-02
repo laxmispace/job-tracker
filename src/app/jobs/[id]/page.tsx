@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
+import ModelSwitcher from "@/components/ModelSwitcher";
 import { timeAgo } from "@/components/JobCard";
 import StatusSelect from "@/components/StatusSelect";
 import { api, sb } from "@/lib/supabase";
@@ -269,15 +270,19 @@ export default function JobPage() {
                       </ul>
                     </div>
                   ))}
-                  <p className="text-xs text-muted">Generated {timeAgo(t.generated_at)}</p>
+                  <p className="text-xs text-muted">
+                    Generated {timeAgo(t.generated_at)}
+                    {t.provider ? ` with ${t.provider}${t.model ? ` · ${t.model}` : ""}` : ""}
+                  </p>
                 </>
               )}
             </Card.Content>
-            <Card.Footer>
+            <Card.Footer className="flex-wrap gap-2">
               <Button onPress={tailor} isPending={tailoring} variant={t ? "secondary" : "primary"}>
                 {tailoring ? <Spinner color="current" size="sm" /> : <MagicWand className="size-4" />}
                 {t ? "Regenerate" : "Tailor my experience"}
               </Button>
+              <ModelSwitcher className="w-52" />
             </Card.Footer>
           </Card>
 

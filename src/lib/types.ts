@@ -22,6 +22,8 @@ export type Tailored = {
   summary: string;
   experiences: TailoredExperience[];
   generated_at: string;
+  provider?: string;
+  model?: string;
 };
 
 export type Job = {
