@@ -190,3 +190,8 @@ footer {
   width: 62%;
   font-weight: 400;
 }
+
+.center {
+  margin: 0;
+  text-align: center;
+}

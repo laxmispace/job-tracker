@@ -105,6 +105,14 @@ $("signIn").onclick = async () => {
 };
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && $("signIn").click());
 
+$("googleSignIn").onclick = async () => {
+  $("googleSignIn").disabled = true;
+  const r = await bg({ type: "signInGoogle" });
+  $("googleSignIn").disabled = false;
+  if (!r.ok) return say("loginMsg", r.error, "err");
+  init();
+};
+
 $("changeUrl").onclick = () => show("setup");
 
 $("signOut").onclick = async () => {

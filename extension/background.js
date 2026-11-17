@@ -39,6 +39,32 @@ async function signIn(email, password) {
   return { email: body.user.email };
 }
 
+// Google sign-in: Supabase redirects back to https://<extension-id>.chromiumapp.org/
+// with the session in the URL fragment. That URL pattern must be in Supabase →
+// Authentication → URL Configuration → Redirect URLs (https://*.chromiumapp.org/**).
+async function signInWithGoogle() {
+  const { supabaseUrl, supabaseAnonKey } = await getConfig();
+  const redirect = chrome.identity.getRedirectURL();
+  const url = supabaseUrl + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(redirect);
+  const back = await chrome.identity.launchWebAuthFlow({ url, interactive: true });
+  if (!back) throw new Error("Google sign-in was cancelled.");
+  const params = new URLSearchParams(new URL(back).hash.slice(1));
+  if (params.get("error")) throw new Error(params.get("error_description") || params.get("error"));
+  const access_token = params.get("access_token");
+  if (!access_token) throw new Error("Google sign-in didn't return a session. Check the Supabase redirect URL list.");
+  const user = await fetch(supabaseUrl + "/auth/v1/user", {
+    headers: { apikey: supabaseAnonKey, Authorization: "Bearer " + access_token },
+  }).then((r) => r.json());
+  await saveSession({
+    access_token,
+    refresh_token: params.get("refresh_token"),
+    expires_at: Number(params.get("expires_at")) || undefined,
+    expires_in: Number(params.get("expires_in")) || 3600,
+    user,
+  });
+  return { email: user.email };
+}
+
 async function saveSession(s) {
   await store.set({
     session: {
@@ -262,6 +288,7 @@ const handlers = {
   },
   setAppUrl: (m) => setAppUrl(m.appUrl),
   signIn: (m) => signIn(m.email, m.password),
+  signInGoogle: () => signInWithGoogle(),
   signOut: () => store.remove("session").then(() => ({ ok: true })),
   setAutoTrack: (m) => store.set({ autoTrack: Boolean(m.value) }).then(() => ({ ok: true })),
   findJob: (m) => findJob(m.url),
