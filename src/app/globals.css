@@ -40,20 +40,20 @@
   --surface: oklch(0.215 0.005 286);
   --surface-secondary: oklch(0.24 0.005 286);
   --overlay: oklch(0.24 0.005 286);
-  --foreground: oklch(0.89 0.004 286); /* 12.6:1, not pure white */
-  --muted: oklch(0.7 0.01 286); /* 6.5:1 */
+  --foreground: oklch(0.82 0.004 286); /* 10:1, soft off-white */
+  --muted: oklch(0.64 0.01 286); /* 5.2:1 */
   --default: oklch(0.27 0.005 286);
   --default-foreground: var(--foreground);
-  --separator: oklch(0.27 0.005 286);
-  --border: oklch(0.3 0.005 286);
+  --separator: oklch(0.28 0.005 286);
+  --border: oklch(0.28 0.005 286);
 
-  --field-background: oklch(0.19 0.004 286); /* inset: a touch darker than the card */
+  --field-background: oklch(0.185 0.004 286); /* inset: darker than the card so the box reads without a loud edge */
   --field-border-width: 1px;
-  --field-border: oklch(0.52 0.008 286); /* 3:1 */
-  --field-border-hover: oklch(0.62 0.008 286);
+  --field-border: oklch(0.43 0.006 286); /* 2.3:1, softened on request; focus state is 7:1 */
+  --field-border-hover: oklch(0.52 0.008 286);
   --field-border-focus: var(--accent);
 
-  --accent: oklch(0.72 0.12 254); /* calmer blue; dark text on it 7.6:1 */
+  --accent: oklch(0.68 0.11 254); /* calmer blue; dark text on it ~7:1 */
   --accent-foreground: oklch(0.18 0.01 260);
   --success: oklch(0.74 0.12 155);
   --danger: oklch(0.7 0.14 25);
@@ -64,6 +64,12 @@
 html,
 body {
   min-height: 100%;
+}
+
+/* One container style everywhere: HeroUI cards get the same 1px edge as our own boxes. */
+.card {
+  border: 1px solid var(--separator);
+  box-shadow: none;
 }
 
 /* Native fields we render ourselves (e.g. the "Also matches" editor) */

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowsClockwise, CaretDown, CheckCircle, CircleNotch, Globe, Laptop, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
-import { Button, Chip, Input, Label, Skeleton, Switch, TextArea, TextField, toast } from "@heroui/react";
+import { Button, Chip, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, RETIRED_KEYS, SEED_QUESTIONS } from "@/lib/seed-questions";
 import { api, sb } from "@/lib/supabase";
@@ -29,7 +29,7 @@ export default function ProfilePage() {
   const [status, setStatus] = useState<Record<string, SaveState>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [phrases, setPhrases] = useState(false);
+  const [phrases, setPhrases] = useState<Record<string, boolean>>({});
   const [tipHidden, setTipHidden] = useState(true);
   const [newQ, setNewQ] = useState("");
   const [uid, setUid] = useState("");
@@ -116,11 +116,9 @@ export default function ProfilePage() {
     return g;
   }, [visible]);
   const portfolioRow = rows?.find((r) => r.key === "portfolio");
-  const states = Object.values(status);
-  const saveLabel = states.includes("saving") ? "saving" : states.includes("error") ? "error" : "saved";
 
   return (
-    <div className="space-y-5 pb-20">
+    <div className="space-y-4">
       {/* Header: title + byline left, progress right */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-xl space-y-1">
@@ -178,47 +176,49 @@ export default function ProfilePage() {
             />
           )}
 
-          <div className="overflow-hidden rounded-2xl border border-separator bg-surface">
-            {CATEGORIES.filter((c) => grouped[c.id]?.length || c.id === "other").map((c, i) => {
-              const list = grouped[c.id] ?? [];
-              const done = list.filter((r) => r.answer.trim()).length;
-              const isOpen = Boolean(open[c.id]);
-              return (
-                <section key={c.id} className={i ? "border-t border-separator" : ""}>
-                  <button
-                    className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-default/40 sm:px-5"
-                    aria-expanded={isOpen}
-                    onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
-                  >
-                    <span className="flex-1 text-sm font-medium">{c.label}</span>
-                    {list.length > 0 && (
-                      <span className={`text-xs tabular-nums ${done === list.length ? "text-success" : "text-muted"}`}>
-                        {done === list.length ? (
-                          <span className="flex items-center gap-1">
-                            <CheckCircle className="size-3.5" /> Done
-                          </span>
-                        ) : (
-                          `${done} of ${list.length}`
-                        )}
-                      </span>
-                    )}
-                    <CaretDown className={`size-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {isOpen && (
-                    <div className="divide-y divide-separator border-t border-separator">
+          {CATEGORIES.filter((c) => grouped[c.id]?.length || c.id === "other").map((c) => {
+            const list = grouped[c.id] ?? [];
+            const done = list.filter((r) => r.answer.trim()).length;
+            const isOpen = Boolean(open[c.id]);
+            const st = list.map((r) => status[r.id]);
+            const sectionState = st.includes("saving") ? "saving" : st.includes("error") ? "error" : st.includes("saved") ? "saved" : null;
+            return (
+              <section key={c.id} className="overflow-hidden rounded-2xl border border-separator bg-surface">
+                <button
+                  className="flex w-full items-center gap-3 bg-default/50 px-4 py-3 text-left transition-colors hover:bg-default sm:px-5"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
+                >
+                  <span className="flex-1 text-xs font-semibold tracking-wider text-muted uppercase">{c.label}</span>
+                  {list.length > 0 && (
+                    <span className={`text-xs tabular-nums ${done === list.length ? "text-success" : "text-muted"}`}>
+                      {done === list.length ? (
+                        <span className="flex items-center gap-1">
+                          <CheckCircle className="size-3.5" /> Done
+                        </span>
+                      ) : (
+                        `${done} of ${list.length}`
+                      )}
+                    </span>
+                  )}
+                  <CaretDown className={`size-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isOpen && (
+                  <>
+                    <div className="grid grid-cols-1 gap-x-5 gap-y-4 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3">
                       {list.map((r) => (
-                        <QuestionRow
+                        <QuestionField
                           key={r.id}
                           r={r}
                           state={status[r.id]}
-                          phrases={phrases}
+                          phrases={Boolean(phrases[c.id])}
                           onAnswer={(v) => update(r.id, { answer: v })}
                           onAliases={(aliases) => update(r.id, { aliases })}
                           onDelete={r.key.startsWith("custom_") ? () => remove(r.id) : undefined}
                         />
                       ))}
                       {c.id === "other" && (
-                        <div className="flex items-end gap-2 px-4 py-4 sm:px-5">
+                        <div className="col-span-full flex items-end gap-2">
                           <TextField className="flex-1" value={newQ} onChange={setNewQ}>
                             <Label>Add a question you keep seeing</Label>
                             <Input placeholder="e.g. Are you comfortable with a design exercise?" onKeyDown={(e) => e.key === "Enter" && addCustom()} />
@@ -229,49 +229,47 @@ export default function ProfilePage() {
                         </div>
                       )}
                     </div>
-                  )}
-                </section>
-              );
-            })}
-          </div>
+                    {list.length > 0 && (
+                      <div className="flex items-center justify-between gap-3 px-4 pb-4 text-xs sm:px-5" aria-live="polite">
+                        <span className="flex items-center gap-1.5 text-muted">
+                          {sectionState === "saving" && (
+                            <>
+                              <CircleNotch className="size-3.5 animate-spin" /> Saving…
+                            </>
+                          )}
+                          {sectionState === "saved" && (
+                            <>
+                              <CheckCircle className="size-3.5 text-success" /> All changes saved
+                            </>
+                          )}
+                          {sectionState === "error" && (
+                            <span className="flex items-center gap-1.5 text-danger">
+                              <WarningCircle className="size-3.5" /> Some answers didn&apos;t save. Edit them again.
+                            </span>
+                          )}
+                          {!sectionState && "Saves as you type"}
+                        </span>
+                        <button
+                          className="text-accent hover:underline"
+                          onClick={() => setPhrases((p) => ({ ...p, [c.id]: !p[c.id] }))}
+                          title="The wording the Chrome extension looks for on job forms to recognise each question"
+                        >
+                          {phrases[c.id] ? "Hide form wording" : "Edit form wording"}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+            );
+          })}
         </>
       )}
-
-      {/* Sticky status bar */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 px-4 md:bottom-4">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-2xl border border-separator bg-surface px-4 py-2.5 shadow-lg">
-          <span className="flex items-center gap-2 text-sm" aria-live="polite">
-            {saveLabel === "saving" && (
-              <>
-                <CircleNotch className="size-4 animate-spin text-muted" /> <span className="text-muted">Saving…</span>
-              </>
-            )}
-            {saveLabel === "saved" && (
-              <>
-                <CheckCircle className="size-4 text-success" /> <span className="text-muted">All changes saved</span>
-              </>
-            )}
-            {saveLabel === "error" && (
-              <>
-                <WarningCircle className="size-4 text-danger" /> <span className="text-danger">Some answers didn&apos;t save. Edit them again.</span>
-              </>
-            )}
-          </span>
-          <Switch isSelected={phrases} onChange={setPhrases} size="sm">
-            <Switch.Content>
-              <Switch.Control>
-                <Switch.Thumb />
-              </Switch.Control>
-              <Label className="text-sm">Autofill phrases</Label>
-            </Switch.Content>
-          </Switch>
-        </div>
-      </div>
     </div>
   );
 }
 
-function QuestionRow({
+function QuestionField({
   r,
   state,
   phrases,
@@ -288,46 +286,52 @@ function QuestionRow({
 }) {
   const seed = SEED[r.key];
   const question = seed?.question ?? r.question;
-  const hint = seed?.hint ?? "";
+  const raw = seed?.hint ?? "";
+  // Show examples as examples, so they never look like a saved answer.
+  const hint = raw && !/^(e\.g\.|only|or:)/i.test(raw) ? `e.g. ${raw}` : raw;
   const long = seed?.long_form ?? r.long_form;
   const [draft, setDraft] = useState(r.aliases.join(", "));
-  const id = `q-${r.id}`;
+  const mark =
+    state === "saved" ? (
+      <CheckCircle className="size-4 text-success" aria-label="Saved" />
+    ) : state === "saving" ? (
+      <CircleNotch className="size-4 animate-spin text-muted" aria-label="Saving" />
+    ) : state === "error" ? (
+      <WarningCircle className="size-4 text-danger" aria-label="Not saved" />
+    ) : null;
   return (
-    <div className="grid gap-2 px-4 py-4 sm:grid-cols-[minmax(0,15rem)_1fr] sm:gap-6 sm:px-5">
-      <div className="flex items-start justify-between gap-2 sm:block sm:pt-2">
-        <label htmlFor={id} className="text-sm font-medium">
-          {question}
-        </label>
-        <div className="flex items-center gap-2 sm:mt-1">
-          {state === "error" && <span className="text-xs text-danger">Not saved</span>}
-          {state === "saved" && <CheckCircle className="size-3.5 text-success" aria-label="Saved" />}
+    <div className={long ? "col-span-full" : ""}>
+      <TextField value={r.answer} onChange={onAnswer}>
+        <Label className="flex items-center justify-between gap-2">
+          <span>{question}</span>
           {onDelete && (
-            <button className="text-muted hover:text-danger" onClick={onDelete} aria-label="Delete this question">
+            <button type="button" className="text-muted hover:text-danger" onClick={onDelete} aria-label="Delete this question">
               <Trash className="size-3.5" />
             </button>
           )}
+        </Label>
+        <div className="relative">
+          {long ? (
+            <TextArea rows={4} placeholder={hint || "Your answer"} className="w-full pr-9" />
+          ) : (
+            <Input placeholder={hint || "Your answer"} className="w-full pr-9" />
+          )}
+          {mark && <span className={`pointer-events-none absolute right-3 ${long ? "top-3" : "top-1/2 -translate-y-1/2"}`}>{mark}</span>}
         </div>
-      </div>
-      <div className="min-w-0 space-y-2">
-        <TextField value={r.answer} onChange={onAnswer} aria-label={question}>
-          {long ? <TextArea id={id} rows={4} placeholder={hint || "Your answer"} /> : <Input id={id} placeholder={hint || "Your answer"} />}
-        </TextField>
-        {phrases && (
-          <div>
-            <input
-              className="field-native w-full px-2.5 py-1.5 text-xs text-foreground"
-              aria-label={`Phrases that identify "${question}" on job forms`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={() => {
-                const aliases = draft.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-                if (aliases.join() !== r.aliases.join()) onAliases(aliases);
-              }}
-            />
-            <p className="mt-1 text-xs text-muted">Comma-separated wordings the Chrome extension looks for on job forms.</p>
-          </div>
-        )}
-      </div>
+      </TextField>
+      {phrases && (
+        <input
+          className="field-native mt-2 w-full px-2.5 py-1.5 text-xs text-foreground"
+          aria-label={`How job forms word "${question}"`}
+          placeholder="Wordings forms use, comma-separated"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            const aliases = draft.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+            if (aliases.join() !== r.aliases.join()) onAliases(aliases);
+          }}
+        />
+      )}
     </div>
   );
 }
