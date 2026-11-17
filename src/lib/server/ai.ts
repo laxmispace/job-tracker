@@ -14,7 +14,7 @@
 
 import type { User } from "@supabase/supabase-js";
 
-export const PROVIDER_IDS = ["gemini", "deepseek", "qwen", "openrouter", "groq", "ollama", "custom"] as const;
+export const PROVIDER_IDS = ["gemini", "deepseek", "qwen", "openrouter", "groq", "xai", "ollama", "custom"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 
 type Preset = {
@@ -73,6 +73,15 @@ const PRESETS: Record<ProviderId, Preset> = {
     signup: "https://console.groq.com/keys",
     needsKey: true,
   },
+  xai: {
+    id: "xai",
+    label: "xAI Grok",
+    baseUrl: "https://api.x.ai/v1",
+    defaultModel: "",
+    note: "Grok models from xAI (paid)",
+    signup: "https://console.x.ai/",
+    needsKey: true,
+  },
   ollama: {
     id: "ollama",
     label: "Ollama (on your Mac)",
@@ -97,6 +106,21 @@ export type Provider = Preset & { apiKey: string; configured: boolean; keyEnv: s
 
 const env = (k: string) => (process.env[k] ?? "").trim();
 
+/**
+ * Also accept short, lowercase variable names (e.g. `gemini`, `deepseek`,
+ * `openrouter`), since Vercel doesn't allow renaming a secret once saved.
+ * A variable named `grok` may hold either an xAI Grok key ("xai-…") or a
+ * Groq key ("gsk_…"), so it's routed by the key's prefix.
+ */
+function shortNameKey(id: ProviderId): string {
+  const direct = env(id) || env(id.toUpperCase());
+  if (direct) return direct;
+  const grok = env("grok") || env("GROK") || env("GROK_API_KEY");
+  if (id === "groq" && grok.startsWith("gsk_")) return grok;
+  if (id === "xai" && grok && !grok.startsWith("gsk_")) return grok;
+  return "";
+}
+
 function resolve(id: ProviderId): Provider {
   const p = PRESETS[id];
   const ID = id.toUpperCase();
@@ -104,7 +128,7 @@ function resolve(id: ProviderId): Provider {
   const legacy = env("AI_PROVIDER").toLowerCase() === id;
   const legacyCustom = id === "custom" && !PRESETS[env("AI_PROVIDER").toLowerCase() as ProviderId] && env("AI_BASE_URL");
 
-  const apiKey = env(`${ID}_API_KEY`) || (legacy || legacyCustom ? env("AI_API_KEY") : "");
+  const apiKey = env(`${ID}_API_KEY`) || shortNameKey(id) || (legacy || legacyCustom ? env("AI_API_KEY") : "");
   const baseUrl = (env(`${ID}_BASE_URL`) || (legacy || legacyCustom ? env("AI_BASE_URL") : "") || p.baseUrl).replace(/\/+$/, "");
   const defaultModel = env(`${ID}_MODEL`) || (legacy || legacyCustom ? env("AI_MODEL") : "") || p.defaultModel;
   const label = id === "custom" ? env("CUSTOM_NAME") || p.label : p.label;
