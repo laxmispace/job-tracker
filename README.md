@@ -12,7 +12,7 @@ Track every application as a card, fill application forms from your own answers 
 ## 1. Supabase (5 min)
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**.
+2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**. Then do the same with `supabase/002_grants_and_profile.sql` (table access for signed-in users + the profile table).
 3. **Project Settings → API**: copy the **Project URL** and the **anon / publishable key**.
 4. **Authentication → URL Configuration**: set **Site URL** to your deployed app URL (after step 4). Email sign-up is on by default; turn off *Confirm email* under **Authentication → Providers → Email** if you don't want the confirmation step.
 

@@ -1,5 +1,6 @@
 import { AIError, TAILOR_SYSTEM, chatJSON, prefsFrom } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
+import { loadProfile, profileContext } from "@/lib/server/profile";
 import type { Experience, Tailored } from "@/lib/types";
 
 export const OPTIONS = preflight;
@@ -40,12 +41,17 @@ export async function POST(req: Request) {
     return json({ error: "Add your work experience on the Experience page first." }, 400);
   }
 
-  const { data: summaryRow } = await db.from("answers").select("answer").eq("key", "summary").maybeSingle();
+  const [{ data: summaryRow }, profile] = await Promise.all([
+    db.from("answers").select("answer").eq("key", "summary").maybeSingle(),
+    loadProfile(db),
+  ]);
 
   const prompt = `JOB: ${title} at ${company}
 
 JOB DESCRIPTION:
 ${description.slice(0, 12000)}
+
+${profileContext(profile)}
 
 CANDIDATE'S CURRENT SUMMARY:
 ${summaryRow?.answer || "(none)"}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Plus } from "@gravity-ui/icons";
+import { Briefcase, Plus } from "@phosphor-icons/react";
 import { Button, Card, SearchField, Skeleton, Tabs, toast } from "@heroui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddJobModal from "@/components/AddJobModal";
@@ -87,18 +87,19 @@ export default function JobsPage() {
             {counts.all} tracked · {active} in progress · {responseRate}% response rate
           </p>
         </div>
-        <Button onPress={() => setAdding(true)}>
-          <Plus className="size-4" /> Add job
-        </Button>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <SearchField value={q} onChange={setQ} aria-label="Search jobs" className="min-w-0 flex-1 sm:w-72 sm:flex-none">
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="Search role, company, city" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+          <Button className="shrink-0" onPress={() => setAdding(true)}>
+            <Plus className="size-4" /> Add job
+          </Button>
+        </div>
       </div>
-
-      <SearchField value={q} onChange={setQ} aria-label="Search jobs" className="w-full sm:max-w-xs">
-        <SearchField.Group>
-          <SearchField.SearchIcon />
-          <SearchField.Input placeholder="Search role, company, city" />
-          <SearchField.ClearButton />
-        </SearchField.Group>
-      </SearchField>
 
       <Tabs selectedKey={filter} onSelectionChange={(k) => setFilter(String(k))} className="w-full">
         <Tabs.ListContainer className="overflow-x-auto">

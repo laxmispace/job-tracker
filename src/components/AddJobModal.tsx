@@ -1,6 +1,6 @@
 "use client";
 
-import { MagicWand, Plus } from "@gravity-ui/icons";
+import { MagicWand, Plus } from "@phosphor-icons/react";
 import { Button, Description, Input, Label, Modal, Spinner, TextArea, TextField, toast } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { canonicalUrl, detectSource } from "@/lib/job-url";

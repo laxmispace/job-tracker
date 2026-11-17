@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase } from "@gravity-ui/icons";
+import { Briefcase } from "@phosphor-icons/react";
 import { Button, Card, Input, Label, Separator, Spinner, TextField } from "@heroui/react";
 import { useState } from "react";
 import { sb } from "@/lib/supabase";

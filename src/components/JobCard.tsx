@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRightFromSquare, Sparkles } from "@gravity-ui/icons";
+import { ArrowSquareOut, Sparkle } from "@phosphor-icons/react";
 import { Card } from "@heroui/react";
 import Link from "next/link";
 import type { Job, Status } from "@/lib/types";
@@ -48,7 +48,7 @@ export default function JobCard({ job, onStatus }: { job: Job; onStatus: (s: Sta
         <span>{job.status === "saved" ? "Saved" : "Applied"} {timeAgo(when)}</span>
         {job.tailored && (
           <span className="inline-flex items-center gap-1 text-accent">
-            <Sparkles className="size-3" /> Tailored
+            <Sparkle className="size-3" /> Tailored
           </span>
         )}
       </div>
@@ -60,7 +60,7 @@ export default function JobCard({ job, onStatus }: { job: Job; onStatus: (s: Sta
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
         >
-          Posting <ArrowUpRightFromSquare className="size-3.5" />
+          Posting <ArrowSquareOut className="size-3.5" />
         </a>
         <StatusSelect className="w-36" value={job.status} onChange={onStatus} />
       </Card.Footer>

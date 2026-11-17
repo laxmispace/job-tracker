@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightFromSquare, Briefcase, FileText, Gear, ListCheck } from "@gravity-ui/icons";
+import { Briefcase, Files, GearSix, IconContext, SignOut, UserCircle } from "@phosphor-icons/react";
 import { Button, Spinner, Toast } from "@heroui/react";
 import type { Session } from "@supabase/supabase-js";
 import Link from "next/link";
@@ -8,16 +8,15 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import { sb, supabaseConfigured } from "@/lib/supabase";
 import LoginScreen from "./LoginScreen";
-import ModelSwitcher from "./ModelSwitcher";
 
 const SessionCtx = createContext<Session | null>(null);
 export const useSession = () => useContext(SessionCtx);
 
 const NAV = [
   { href: "/", label: "Jobs", icon: Briefcase },
-  { href: "/answers", label: "Answers", icon: ListCheck },
-  { href: "/experience", label: "Experience", icon: FileText },
-  { href: "/settings", label: "AI", icon: Gear },
+  { href: "/answers", label: "Profile", icon: UserCircle },
+  { href: "/experience", label: "Experience", icon: Files },
+  { href: "/settings", label: "AI settings", icon: GearSix },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -63,6 +62,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionCtx.Provider value={session}>
+      {/* Filled icons everywhere */}
+      <IconContext.Provider value={{ weight: "fill" }}>
       <Toast.Provider placement="top" />
       {session && (
         <header className="sticky top-0 z-30 border-b border-separator bg-background/80 backdrop-blur">
@@ -74,24 +75,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span className="hidden sm:inline">Job Tracker</span>
             </Link>
             <nav className="hidden gap-1 md:flex">
-              {NAV.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                    isActive(n.href) ? "bg-default text-foreground" : "text-muted hover:text-foreground"
-                  }`}
-                >
-                  {n.label}
-                </Link>
-              ))}
+              {NAV.map((n) => {
+                const Icon = n.icon;
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                      isActive(n.href) ? "bg-default text-foreground" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="size-4" />
+                    {n.label}
+                  </Link>
+                );
+              })}
             </nav>
             <div className="ml-auto flex items-center gap-2">
-              {/* Switch AI model from anywhere in the app */}
-              <ModelSwitcher compact className="w-36 sm:w-44" />
               <span className="hidden text-xs text-muted lg:inline">{session.user.email}</span>
               <Button size="sm" variant="ghost" isIconOnly aria-label="Sign out" onPress={() => sb().auth.signOut()}>
-                <ArrowRightFromSquare className="size-4" />
+                <SignOut className="size-4" />
               </Button>
             </div>
           </div>
@@ -124,6 +127,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
       )}
+      </IconContext.Provider>
     </SessionCtx.Provider>
   );
 }

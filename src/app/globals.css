@@ -6,9 +6,35 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Visible field borders. HeroUI's default theme draws fields as borderless
+ * filled boxes (--field-border-width: 0), which disappear on light surfaces.
+ * These tokens apply to every Input, TextArea, Select, SearchField and ComboBox.
+ */
+:root,
+.dark,
+[data-theme="light"],
+[data-theme="dark"] {
+  --field-border-width: 1px;
+  --field-border: var(--border-tertiary);
+  --field-border-hover: color-mix(in oklab, var(--border-tertiary) 55%, var(--foreground) 45%);
+  --field-border-focus: var(--accent);
+}
+
 html,
 body {
   min-height: 100%;
+}
+
+/* Native fields we render ourselves (e.g. the "Also matches" editor) */
+.field-native {
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-field, 0.75rem);
+  background: var(--field-background);
+}
+.field-native:focus {
+  outline: none;
+  border-color: var(--field-border-focus);
 }
 
 body {

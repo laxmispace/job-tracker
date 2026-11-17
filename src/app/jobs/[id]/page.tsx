@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowUpRightFromSquare, MagicWand, Sparkles, TrashBin } from "@gravity-ui/icons";
+import { ArrowLeft, ArrowSquareOut, MagicWand, Sparkle, Trash } from "@phosphor-icons/react";
 import {
   Button,
   Card,
@@ -141,14 +141,14 @@ export default function JobPage() {
           </p>
           {!job.url.startsWith("manual:") && (
             <a href={job.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm text-accent hover:underline">
-              Open posting <ArrowUpRightFromSquare className="size-3.5" />
+              Open posting <ArrowSquareOut className="size-3.5" />
             </a>
           )}
         </div>
         <div className="flex items-center gap-2">
           <StatusSelect className="w-40" value={job.status} onChange={setStatus} />
           <Button variant="danger-soft" isIconOnly aria-label="Delete job" onPress={remove}>
-            <TrashBin className="size-4" />
+            <Trash className="size-4" />
           </Button>
         </div>
       </div>
@@ -202,7 +202,7 @@ export default function JobPage() {
             <Card.Header className="flex-row items-start justify-between gap-3">
               <div>
                 <Card.Title className="flex items-center gap-2">
-                  <Sparkles className="size-4 text-accent" /> Tailored experience
+                  <Sparkle className="size-4 text-accent" /> Tailored experience
                 </Card.Title>
                 <Card.Description>
                   Your real experience, rephrased with this posting&apos;s keywords. Nothing is invented.
@@ -282,7 +282,10 @@ export default function JobPage() {
                 {tailoring ? <Spinner color="current" size="sm" /> : <MagicWand className="size-4" />}
                 {t ? "Regenerate" : "Tailor my experience"}
               </Button>
-              <ModelSwitcher className="w-52" />
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-xs text-muted">Written by</span>
+                <ModelSwitcher className="w-48" label="AI model that writes these drafts" />
+              </div>
             </Card.Footer>
           </Card>
 
@@ -309,7 +312,7 @@ export default function JobPage() {
             </Card.Content>
             <Card.Footer>
               <Button variant="secondary" onPress={draftAnswer} isPending={answering} isDisabled={!question.trim()}>
-                {answering ? <Spinner color="current" size="sm" /> : <Sparkles className="size-4" />}
+                {answering ? <Spinner color="current" size="sm" /> : <Sparkle className="size-4" />}
                 Draft answer
               </Button>
             </Card.Footer>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy } from "@gravity-ui/icons";
+import { Check, Copy } from "@phosphor-icons/react";
 import { Button } from "@heroui/react";
 import { useState } from "react";
 

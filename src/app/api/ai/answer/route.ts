@@ -1,6 +1,7 @@
 import { canonicalUrl } from "@/lib/job-url";
 import { AIError, ANSWER_SYSTEM, chat, prefsFrom } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
+import { loadProfile, profileContext } from "@/lib/server/profile";
 import type { Answer, Experience, Tailored } from "@/lib/types";
 
 export const OPTIONS = preflight;
@@ -33,9 +34,10 @@ export async function POST(req: Request) {
     job = (await db.from("jobs").select("title,company,description,tailored").eq("url", canonicalUrl(body.url)).maybeSingle()).data;
   }
 
-  const [{ data: answers }, { data: exps }] = await Promise.all([
+  const [{ data: answers }, { data: exps }, me] = await Promise.all([
     db.from("answers").select("question,answer,long_form").neq("answer", ""),
     db.from("experiences").select("company,title,start_date,end_date,bullets,skills").order("sort"),
+    loadProfile(db),
   ]);
 
   const profile = ((answers ?? []) as Pick<Answer, "question" | "answer" | "long_form">[])
@@ -58,6 +60,8 @@ ${
     ? `ALREADY PREPARED FOR THIS JOB (stay consistent with it):\nSummary: ${job.tailored.summary}\nKeywords: ${job.tailored.keywords.join(", ")}\n`
     : ""
 }
+${profileContext(me)}
+
 MY PROFILE ANSWERS:
 ${profile || "(none)"}
 
