@@ -66,7 +66,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <IconContext.Provider value={{ weight: "fill" }}>
       <Toast.Provider placement="top" />
       {session && (
-        <header className="sticky top-0 z-30 border-b border-separator bg-background/80 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-separator bg-background">
           <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 md:gap-6">
             <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
               <span className="grid size-7 place-items-center rounded-lg bg-accent text-accent-foreground">
@@ -105,7 +105,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {session && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-separator bg-background/95 backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-separator bg-background md:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="grid grid-cols-4">

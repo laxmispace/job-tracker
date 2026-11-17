@@ -11,12 +11,6 @@ export type Profile = {
   resume_text: string | null;
 };
 
-const TRACK_LABEL: Record<string, string> = {
-  product_designer: "Product Designer",
-  software_engineer: "Software Engineer",
-  ml_engineer: "ML Engineer",
-  other: "General",
-};
 
 export async function loadProfile(db: SupabaseClient): Promise<Profile | null> {
   const { data } = await db.from("profiles").select("*").maybeSingle();
@@ -26,7 +20,7 @@ export async function loadProfile(db: SupabaseClient): Promise<Profile | null> {
 /** Extra context every AI task gets: career track, portfolio and resume text. */
 export function profileContext(p: Profile | null) {
   if (!p) return "";
-  const parts = [`CAREER TRACK: ${TRACK_LABEL[p.track] ?? p.track}`];
+  const parts: string[] = [];
   if (p.portfolio_text?.trim()) {
     parts.push(`PORTFOLIO (${p.portfolio_url}) — real projects and case studies; cite them by name where relevant:\n${p.portfolio_text.slice(0, 7000)}`);
   }

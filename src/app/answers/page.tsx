@@ -1,31 +1,42 @@
 "use client";
 
-import { ArrowsClockwise, CheckCircle, CircleNotch, Globe, PencilSimple, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
-import { Button, Card, Chip, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
+import { ArrowsClockwise, CaretDown, CheckCircle, CircleNotch, Globe, Laptop, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
+import { Button, Chip, Input, Label, Skeleton, Switch, TextArea, TextField, toast } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CATEGORIES, SEED_QUESTIONS, TRACKS, inTrack, type Track } from "@/lib/seed-questions";
+import { CATEGORIES, RETIRED_KEYS, SEED_QUESTIONS } from "@/lib/seed-questions";
 import { api, sb } from "@/lib/supabase";
 import type { Answer } from "@/lib/types";
 
-const HINTS = Object.fromEntries(SEED_QUESTIONS.map((q) => [q.key, q.hint ?? ""]));
+const SEED = Object.fromEntries(SEED_QUESTIONS.map((q) => [q.key, q]));
 type SaveState = "saving" | "saved" | "error";
 type ProfileRow = {
-  track: Track;
   portfolio_url: string | null;
   portfolio_pages: { url: string; title: string }[] | null;
   portfolio_fetched_at: string | null;
-  portfolio_text: string | null;
 };
+
+function readTipDismissed() {
+  try {
+    return localStorage.getItem("jt-profile-tip") === "1";
+  } catch {
+    return false;
+  }
+}
 
 export default function ProfilePage() {
   const [rows, setRows] = useState<Answer[] | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [status, setStatus] = useState<Record<string, SaveState>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [phrases, setPhrases] = useState(false);
+  const [tipHidden, setTipHidden] = useState(true);
   const [newQ, setNewQ] = useState("");
   const [uid, setUid] = useState("");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read a per-device preference once
+    setTipHidden(readTipDismissed());
     (async () => {
       const db = sb();
       const { data: u } = await db.auth.getUser();
@@ -33,11 +44,12 @@ export default function ProfilePage() {
       setUid(userId);
       const [{ data }, { data: prof }] = await Promise.all([
         db.from("answers").select("*").order("sort"),
-        db.from("profiles").select("track,portfolio_url,portfolio_pages,portfolio_fetched_at,portfolio_text").maybeSingle(),
+        db.from("profiles").select("portfolio_url,portfolio_pages,portfolio_fetched_at").maybeSingle(),
       ]);
-      setProfile((prof as ProfileRow) ?? { track: "product_designer", portfolio_url: "", portfolio_pages: null, portfolio_fetched_at: null, portfolio_text: null });
+      setProfile((prof as ProfileRow) ?? { portfolio_url: "", portfolio_pages: null, portfolio_fetched_at: null });
       const have = new Set((data ?? []).map((a) => a.key));
       const missing = SEED_QUESTIONS.filter((q) => !have.has(q.key));
+      let list = (data as Answer[]) ?? [];
       if (missing.length) {
         const { error } = await db.from("answers").upsert(
           missing.map((q) => ({
@@ -52,11 +64,14 @@ export default function ProfilePage() {
           { onConflict: "user_id,key", ignoreDuplicates: true },
         );
         if (error) toast("Couldn't prepare your questions", { description: error.message, variant: "danger" });
-        const again = await db.from("answers").select("*").order("sort");
-        setRows((again.data as Answer[]) ?? []);
-      } else {
-        setRows((data as Answer[]) ?? []);
+        list = ((await db.from("answers").select("*").order("sort")).data as Answer[]) ?? [];
       }
+      setRows(list);
+      // Open the first section that still has blanks
+      const firstGap = CATEGORIES.find((c) =>
+        list.some((r) => !RETIRED_KEYS.has(r.key) && (SEED[r.key]?.category ?? r.category) === c.id && !r.answer.trim()),
+      );
+      setOpen({ [firstGap?.id ?? "personal"]: true });
     })();
   }, []);
 
@@ -71,27 +86,19 @@ export default function ProfilePage() {
     }, 600);
   }
 
-  async function setTrack(track: Track) {
-    setProfile((p) => (p ? { ...p, track } : p));
-    const { error } = await sb().from("profiles").upsert({ user_id: uid, track }, { onConflict: "user_id" });
-    if (error) toast("Couldn't save your track", { description: error.message, variant: "danger" });
-    else toast(`Showing ${TRACKS.find((t) => t.id === track)?.label} questions`, { variant: "success" });
-  }
-
   async function addCustom() {
     const question = newQ.trim();
     if (!question) return;
     const key = `custom_${question.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40)}_${Date.now().toString(36)}`;
-    const words = question.toLowerCase().replace(/[?*:]/g, "").trim();
     const { data, error } = await sb()
       .from("answers")
-      .insert({ user_id: uid, key, category: "other", question, aliases: [words], sort: 1000 + (rows?.length ?? 0) })
+      .insert({ user_id: uid, key, category: "other", question, aliases: [question.toLowerCase().replace(/[?*:]/g, "").trim()], sort: 1000 + (rows?.length ?? 0) })
       .select()
       .single();
     if (error) return toast("Couldn't add that question", { description: error.message, variant: "danger" });
     setRows((rs) => [...(rs ?? []), data as Answer]);
     setNewQ("");
-    toast("Question added", { description: "Type your answer below it.", variant: "success" });
+    toast("Question added", { variant: "success" });
   }
 
   async function remove(id: string) {
@@ -100,216 +107,225 @@ export default function ProfilePage() {
     if (error) toast("Couldn't delete", { description: error.message, variant: "danger" });
   }
 
-  const track = profile?.track ?? "product_designer";
-  const visible = useMemo(() => (rows ?? []).filter((r) => inTrack(r.key, track)), [rows, track]);
+  const visible = useMemo(() => (rows ?? []).filter((r) => !RETIRED_KEYS.has(r.key) && r.key !== "portfolio"), [rows]);
   const answered = visible.filter((r) => r.answer.trim()).length;
   const pct = visible.length ? Math.round((answered / visible.length) * 100) : 0;
   const grouped = useMemo(() => {
     const g: Record<string, Answer[]> = {};
-    visible.forEach((r) => (g[r.category] ??= []).push(r));
+    visible.forEach((r) => (g[SEED[r.key]?.category ?? r.category] ??= []).push(r));
     return g;
   }, [visible]);
   const portfolioRow = rows?.find((r) => r.key === "portfolio");
-  const pending = Object.values(status).some((s) => s === "saving");
+  const states = Object.values(status);
+  const saveLabel = states.includes("saving") ? "saving" : states.includes("error") ? "error" : "saved";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-20">
       {/* Header: title + byline left, progress right */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-xl space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-          <p className="text-sm text-muted">
-            Your answers fill job application forms automatically. Everything is saved to your account as you type.
-          </p>
-          <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
-            {pending ? (
-              <>
-                <CircleNotch className="size-3.5 animate-spin" /> Saving…
-              </>
-            ) : (
-              <>
-                <CheckCircle className="size-3.5 text-success" /> All changes saved
-              </>
-            )}
-          </p>
+          <p className="text-sm text-muted">Your answers fill job application forms for you. Fill a section at a time; it all saves as you type.</p>
         </div>
         {rows && (
-          <div className="w-full shrink-0 rounded-2xl border border-separator bg-surface p-4 sm:w-64">
+          <div className="w-full shrink-0 rounded-2xl border border-separator bg-surface px-4 py-3 sm:w-60">
             <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-semibold tabular-nums">{pct}%</span>
+              <span className="text-xl font-semibold tabular-nums">{pct}%</span>
               <span className="text-xs text-muted tabular-nums">
                 {answered} of {visible.length} answered
               </span>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-default">
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-default" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Profile completion">
               <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
             </div>
           </div>
         )}
       </div>
 
+      {/* Phone tip */}
+      {!tipHidden && (
+        <div className="flex items-start gap-3 rounded-2xl border border-separator bg-surface p-3 text-sm md:hidden">
+          <Laptop className="mt-0.5 size-5 shrink-0 text-accent" />
+          <p className="flex-1 text-muted">
+            <span className="font-medium text-foreground">Tip:</span> this is a long form, so it&apos;s quicker on a laptop. Everything saves as you go, so
+            you can stop and continue anywhere.
+          </p>
+          <button
+            aria-label="Dismiss tip"
+            className="rounded-md p-1 text-muted hover:text-foreground"
+            onClick={() => {
+              setTipHidden(true);
+              try {
+                localStorage.setItem("jt-profile-tip", "1");
+              } catch {}
+            }}
+          >
+            <X weight="bold" className="size-4" />
+          </button>
+        </div>
+      )}
+
       {!rows || !profile ? (
         <Skeleton className="h-96 rounded-2xl" />
       ) : (
         <>
-          {/* Track */}
-          <Card className="gap-3">
-            <Card.Header>
-              <Card.Title>What roles are you applying for?</Card.Title>
-              <Card.Description>Each track asks for different things. Switching keeps all your answers.</Card.Description>
-            </Card.Header>
-            <Card.Content className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Career track">
-              {TRACKS.map((t) => {
-                const on = t.id === track;
-                return (
-                  <button
-                    key={t.id}
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => !on && setTrack(t.id)}
-                    className={`rounded-xl border p-3 text-left transition-colors ${
-                      on ? "border-accent bg-accent/5" : "border-separator hover:border-[var(--field-border-hover)]"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between text-sm font-medium">
-                      {t.label}
-                      {on && <CheckCircle className="size-4 text-accent" />}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-muted">{t.blurb}</span>
-                  </button>
-                );
-              })}
-            </Card.Content>
-          </Card>
-
-          {/* Portfolio */}
           {portfolioRow && (
             <PortfolioCard
               value={portfolioRow.answer}
               onChange={(v) => update(portfolioRow.id, { answer: v })}
               profile={profile}
               onRead={(p) => setProfile((x) => (x ? { ...x, ...p } : x))}
-              emphasise={track === "product_designer"}
             />
           )}
 
-          {/* Questions */}
-          {CATEGORIES.filter((c) => grouped[c.id]?.length || c.id === "other").map((c) => {
-            const list = (grouped[c.id] ?? []).filter((r) => r.key !== "portfolio");
-            const done = list.filter((r) => r.answer.trim()).length;
-            return (
-              <Card key={c.id} className="gap-4">
-                <Card.Header className="flex-row items-center justify-between">
-                  <Card.Title>{c.label}</Card.Title>
-                  <Chip size="sm" variant="soft" color={list.length && done === list.length ? "success" : "default"}>
-                    {done}/{list.length}
-                  </Chip>
-                </Card.Header>
-                <Card.Content className="grid gap-x-6 gap-y-5 md:grid-cols-2">
-                  {list.map((r) => (
-                    <QuestionField
-                      key={r.id}
-                      r={r}
-                      state={status[r.id]}
-                      onAnswer={(v) => update(r.id, { answer: v })}
-                      onAliases={(aliases) => update(r.id, { aliases })}
-                      onDelete={r.key.startsWith("custom_") ? () => remove(r.id) : undefined}
-                    />
-                  ))}
-                  {c.id === "other" && (
-                    <div className="flex items-end gap-2 md:col-span-2">
-                      <TextField className="flex-1" value={newQ} onChange={setNewQ}>
-                        <Label>Add a question you keep seeing</Label>
-                        <Input placeholder="e.g. Are you comfortable with a design exercise?" onKeyDown={(e) => e.key === "Enter" && addCustom()} />
-                      </TextField>
-                      <Button variant="secondary" onPress={addCustom} isDisabled={!newQ.trim()}>
-                        <Plus className="size-4" /> Add
-                      </Button>
+          <div className="overflow-hidden rounded-2xl border border-separator bg-surface">
+            {CATEGORIES.filter((c) => grouped[c.id]?.length || c.id === "other").map((c, i) => {
+              const list = grouped[c.id] ?? [];
+              const done = list.filter((r) => r.answer.trim()).length;
+              const isOpen = Boolean(open[c.id]);
+              return (
+                <section key={c.id} className={i ? "border-t border-separator" : ""}>
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-default/40 sm:px-5"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
+                  >
+                    <span className="flex-1 text-sm font-medium">{c.label}</span>
+                    {list.length > 0 && (
+                      <span className={`text-xs tabular-nums ${done === list.length ? "text-success" : "text-muted"}`}>
+                        {done === list.length ? (
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="size-3.5" /> Done
+                          </span>
+                        ) : (
+                          `${done} of ${list.length}`
+                        )}
+                      </span>
+                    )}
+                    <CaretDown className={`size-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="divide-y divide-separator border-t border-separator">
+                      {list.map((r) => (
+                        <QuestionRow
+                          key={r.id}
+                          r={r}
+                          state={status[r.id]}
+                          phrases={phrases}
+                          onAnswer={(v) => update(r.id, { answer: v })}
+                          onAliases={(aliases) => update(r.id, { aliases })}
+                          onDelete={r.key.startsWith("custom_") ? () => remove(r.id) : undefined}
+                        />
+                      ))}
+                      {c.id === "other" && (
+                        <div className="flex items-end gap-2 px-4 py-4 sm:px-5">
+                          <TextField className="flex-1" value={newQ} onChange={setNewQ}>
+                            <Label>Add a question you keep seeing</Label>
+                            <Input placeholder="e.g. Are you comfortable with a design exercise?" onKeyDown={(e) => e.key === "Enter" && addCustom()} />
+                          </TextField>
+                          <Button variant="secondary" onPress={addCustom} isDisabled={!newQ.trim()}>
+                            <Plus className="size-4" /> Add
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
-                </Card.Content>
-              </Card>
-            );
-          })}
+                </section>
+              );
+            })}
+          </div>
         </>
       )}
+
+      {/* Sticky status bar */}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 px-4 md:bottom-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-2xl border border-separator bg-surface px-4 py-2.5 shadow-lg">
+          <span className="flex items-center gap-2 text-sm" aria-live="polite">
+            {saveLabel === "saving" && (
+              <>
+                <CircleNotch className="size-4 animate-spin text-muted" /> <span className="text-muted">Saving…</span>
+              </>
+            )}
+            {saveLabel === "saved" && (
+              <>
+                <CheckCircle className="size-4 text-success" /> <span className="text-muted">All changes saved</span>
+              </>
+            )}
+            {saveLabel === "error" && (
+              <>
+                <WarningCircle className="size-4 text-danger" /> <span className="text-danger">Some answers didn&apos;t save. Edit them again.</span>
+              </>
+            )}
+          </span>
+          <Switch isSelected={phrases} onChange={setPhrases} size="sm">
+            <Switch.Content>
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Label className="text-sm">Autofill phrases</Label>
+            </Switch.Content>
+          </Switch>
+        </div>
+      </div>
     </div>
   );
 }
 
-function SaveMark({ state }: { state?: SaveState }) {
-  if (state === "saving") return <span className="text-xs font-normal text-muted">Saving…</span>;
-  if (state === "saved")
-    return (
-      <span className="flex items-center gap-1 text-xs font-normal text-success">
-        <CheckCircle className="size-3.5" /> Saved
-      </span>
-    );
-  if (state === "error")
-    return (
-      <span className="flex items-center gap-1 text-xs font-normal text-danger">
-        <WarningCircle className="size-3.5" /> Not saved
-      </span>
-    );
-  return null;
-}
-
-function QuestionField({
+function QuestionRow({
   r,
   state,
+  phrases,
   onAnswer,
   onAliases,
   onDelete,
 }: {
   r: Answer;
   state?: SaveState;
+  phrases: boolean;
   onAnswer: (v: string) => void;
   onAliases: (a: string[]) => void;
   onDelete?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const seed = SEED[r.key];
+  const question = seed?.question ?? r.question;
+  const hint = seed?.hint ?? "";
+  const long = seed?.long_form ?? r.long_form;
   const [draft, setDraft] = useState(r.aliases.join(", "));
+  const id = `q-${r.id}`;
   return (
-    <div className={r.long_form ? "md:col-span-2" : ""}>
-      <TextField value={r.answer} onChange={onAnswer}>
-        <Label className="flex items-center justify-between gap-2">
-          <span>{r.question}</span>
-          <SaveMark state={state} />
-        </Label>
-        {r.long_form ? <TextArea rows={4} placeholder={HINTS[r.key] || "Your answer"} /> : <Input placeholder={HINTS[r.key] || "Your answer"} />}
-      </TextField>
-      <div className="mt-1.5 flex items-center gap-2 text-xs text-muted">
-        {editing ? (
-          <>
+    <div className="grid gap-2 px-4 py-4 sm:grid-cols-[minmax(0,15rem)_1fr] sm:gap-6 sm:px-5">
+      <div className="flex items-start justify-between gap-2 sm:block sm:pt-2">
+        <label htmlFor={id} className="text-sm font-medium">
+          {question}
+        </label>
+        <div className="flex items-center gap-2 sm:mt-1">
+          {state === "error" && <span className="text-xs text-danger">Not saved</span>}
+          {state === "saved" && <CheckCircle className="size-3.5 text-success" aria-label="Saved" />}
+          {onDelete && (
+            <button className="text-muted hover:text-danger" onClick={onDelete} aria-label="Delete this question">
+              <Trash className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="min-w-0 space-y-2">
+        <TextField value={r.answer} onChange={onAnswer} aria-label={question}>
+          {long ? <TextArea id={id} rows={4} placeholder={hint || "Your answer"} /> : <Input id={id} placeholder={hint || "Your answer"} />}
+        </TextField>
+        {phrases && (
+          <div>
             <input
-              autoFocus
-              className="field-native min-w-0 flex-1 px-2 py-1 text-xs text-foreground"
-              aria-label={`Phrases that identify "${r.question}" on forms`}
+              className="field-native w-full px-2.5 py-1.5 text-xs text-foreground"
+              aria-label={`Phrases that identify "${question}" on job forms`}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
               onBlur={() => {
                 const aliases = draft.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
                 if (aliases.join() !== r.aliases.join()) onAliases(aliases);
-                setEditing(false);
               }}
             />
-          </>
-        ) : (
-          <>
-            <span className="min-w-0 flex-1 truncate" title={r.aliases.join(", ")}>
-              Autofill matches: {r.aliases.slice(0, 4).join(", ")}
-              {r.aliases.length > 4 ? ` +${r.aliases.length - 4}` : ""}
-            </span>
-            <button className="inline-flex items-center gap-1 text-accent hover:underline" onClick={() => setEditing(true)}>
-              <PencilSimple className="size-3" /> Edit
-            </button>
-          </>
-        )}
-        {onDelete && (
-          <button className="inline-flex items-center gap-1 text-danger hover:underline" onClick={onDelete} aria-label="Delete question">
-            <Trash className="size-3" />
-          </button>
+            <p className="mt-1 text-xs text-muted">Comma-separated wordings the Chrome extension looks for on job forms.</p>
+          </div>
         )}
       </div>
     </div>
@@ -321,13 +337,11 @@ function PortfolioCard({
   onChange,
   profile,
   onRead,
-  emphasise,
 }: {
   value: string;
   onChange: (v: string) => void;
   profile: ProfileRow;
   onRead: (p: Partial<ProfileRow>) => void;
-  emphasise: boolean;
 }) {
   const [reading, setReading] = useState(false);
   const [note, setNote] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
@@ -344,8 +358,8 @@ function PortfolioCard({
       onRead({ portfolio_url: clean, portfolio_pages: r.pages, portfolio_fetched_at: new Date().toISOString() });
       setNote(
         r.thin
-          ? { tone: "warn", text: "Read the site but found very little text. If it's built in Framer/Notion with images only, add short project descriptions on each page." }
-          : { tone: "ok", text: `Read ${r.pages.length} page${r.pages.length === 1 ? "" : "s"} (${r.chars.toLocaleString()} characters). The AI will reference these projects.` },
+          ? { tone: "warn", text: "Found very little text. If your case studies are mostly images, add a short description to each page." }
+          : { tone: "ok", text: `Read ${r.pages.length} page${r.pages.length === 1 ? "" : "s"}. Every AI model can now refer to these projects.` },
       );
     } catch (e) {
       setNote({ tone: "err", text: (e as Error).message });
@@ -356,55 +370,38 @@ function PortfolioCard({
 
   const pages = profile.portfolio_pages ?? [];
   return (
-    <Card className={`gap-4 ${emphasise ? "border border-accent/30" : ""}`}>
-      <Card.Header className="flex-row items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
-          <Globe className="size-5" />
-        </span>
-        <div>
-          <Card.Title>Portfolio</Card.Title>
-          <Card.Description>
-            Paste your portfolio link. The app reads your case studies automatically so every AI model can mention your real
-            projects in tailored bullets and answers.
-          </Card.Description>
-        </div>
-      </Card.Header>
-      <Card.Content className="flex flex-col gap-3">
-        <div className="flex items-end gap-2">
-          <TextField className="min-w-0 flex-1" value={value} onChange={onChange} type="url">
-            <Label>Portfolio URL</Label>
-            <Input
-              placeholder="https://yourname.design"
-              onBlur={() => value.trim() && value.trim() !== lastRead.current && read()}
-            />
-          </TextField>
-          <Button variant="secondary" className="shrink-0" onPress={() => read()} isPending={reading} isDisabled={!value.trim()}>
-            {reading ? <CircleNotch className="size-4 animate-spin" /> : <ArrowsClockwise className="size-4" />}
-            {pages.length ? "Read again" : "Read portfolio"}
-          </Button>
-        </div>
-        {reading && <p className="text-sm text-muted">Reading your portfolio and its case studies…</p>}
-        {note && (
-          <p className={`text-sm ${note.tone === "ok" ? "text-success" : note.tone === "warn" ? "text-warning" : "text-danger"}`}>{note.text}</p>
-        )}
-        {!note && pages.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs text-muted">
-              Pages the AI knows about
-              {profile.portfolio_fetched_at ? ` · read ${new Date(profile.portfolio_fetched_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}
-            </p>
+    <div className="rounded-2xl border border-separator bg-surface p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <Globe className="mt-0.5 size-5 shrink-0 text-accent" />
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <p className="text-sm font-medium">Portfolio</p>
+            <p className="text-sm text-muted">The app reads your case studies so every AI model can mention your real projects.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <TextField className="min-w-0 flex-1" value={value} onChange={onChange} type="url" aria-label="Portfolio URL">
+              <Input placeholder="https://yourname.design" onBlur={() => value.trim() && value.trim() !== lastRead.current && read()} />
+            </TextField>
+            <Button variant="secondary" className="shrink-0" onPress={() => read()} isPending={reading} isDisabled={!value.trim()}>
+              {reading ? <CircleNotch className="size-4 animate-spin" /> : <ArrowsClockwise className="size-4" />}
+              <span className="hidden sm:inline">{pages.length ? "Read again" : "Read"}</span>
+            </Button>
+          </div>
+          {reading && <p className="text-sm text-muted">Reading your portfolio and its case studies…</p>}
+          {note && <p className={`text-sm ${note.tone === "ok" ? "text-success" : note.tone === "warn" ? "text-warning" : "text-danger"}`}>{note.text}</p>}
+          {!note && pages.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {pages.slice(0, 9).map((p) => (
+              {pages.slice(0, 8).map((p) => (
                 <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer">
                   <Chip size="sm" variant="soft">
-                    {p.title.slice(0, 40) || p.url}
+                    {p.title.slice(0, 36) || p.url}
                   </Chip>
                 </a>
               ))}
             </div>
-          </div>
-        )}
-      </Card.Content>
-    </Card>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

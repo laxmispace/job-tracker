@@ -7,18 +7,58 @@
 }
 
 /*
- * Visible field borders. HeroUI's default theme draws fields as borderless
- * filled boxes (--field-border-width: 0), which disappear on light surfaces.
- * These tokens apply to every Input, TextArea, Select, SearchField and ComboBox.
+ * Calm theme. Softer text and surfaces than HeroUI's defaults, and visible
+ * field borders. Every pair meets WCAG 2.2 AA: text >= 4.5:1, input borders
+ * and other UI boundaries >= 3:1 (1.4.11). Ratios noted beside each token.
  */
 :root,
-.dark,
-[data-theme="light"],
-[data-theme="dark"] {
+[data-theme="light"] {
+  --background: oklch(0.975 0.002 286);
+  --surface: oklch(0.995 0.001 286);
+  --overlay: oklch(0.995 0.001 286);
+  --foreground: oklch(0.29 0.008 286); /* 13.9:1 on surface */
+  --muted: oklch(0.5 0.012 286); /* 5.9:1 */
+  --separator: oklch(0.92 0.003 286);
+  --border: oklch(0.9 0.004 286);
+
+  --field-background: oklch(0.995 0.001 286);
   --field-border-width: 1px;
-  --field-border: var(--border-tertiary);
-  --field-border-hover: color-mix(in oklab, var(--border-tertiary) 55%, var(--foreground) 45%);
+  --field-border: oklch(0.66 0.008 286); /* 3.1:1 */
+  --field-border-hover: oklch(0.55 0.01 286);
   --field-border-focus: var(--accent);
+
+  --accent: oklch(0.55 0.17 255); /* white text 4.9:1 */
+  --accent-foreground: oklch(0.995 0 0);
+  --success: oklch(0.5 0.13 150);
+  --danger: oklch(0.52 0.18 25);
+  --warning: oklch(0.55 0.12 70);
+}
+
+.dark,
+[data-theme="dark"] {
+  --background: oklch(0.17 0.004 286);
+  --surface: oklch(0.215 0.005 286);
+  --surface-secondary: oklch(0.24 0.005 286);
+  --overlay: oklch(0.24 0.005 286);
+  --foreground: oklch(0.89 0.004 286); /* 12.6:1, not pure white */
+  --muted: oklch(0.7 0.01 286); /* 6.5:1 */
+  --default: oklch(0.27 0.005 286);
+  --default-foreground: var(--foreground);
+  --separator: oklch(0.27 0.005 286);
+  --border: oklch(0.3 0.005 286);
+
+  --field-background: oklch(0.19 0.004 286); /* inset: a touch darker than the card */
+  --field-border-width: 1px;
+  --field-border: oklch(0.52 0.008 286); /* 3:1 */
+  --field-border-hover: oklch(0.62 0.008 286);
+  --field-border-focus: var(--accent);
+
+  --accent: oklch(0.72 0.12 254); /* calmer blue; dark text on it 7.6:1 */
+  --accent-foreground: oklch(0.18 0.01 260);
+  --success: oklch(0.74 0.12 155);
+  --danger: oklch(0.7 0.14 25);
+  --danger-foreground: oklch(0.18 0.01 260);
+  --warning: oklch(0.8 0.11 80);
 }
 
 html,
@@ -41,6 +81,8 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-tap-highlight-color: transparent;
 }
 

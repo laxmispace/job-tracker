@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, CheckCircle, CircleNotch, FileArrowUp, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, CaretDown, CheckCircle, CircleNotch, FileArrowUp, Info, PencilSimple, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
 import { Button, Card, Description, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { api, sb } from "@/lib/supabase";
@@ -21,6 +21,8 @@ export default function ExperiencePage() {
   const [resume, setResume] = useState<ResumeFile | null>(null);
   const [imp, setImp] = useState<ImportState>({ kind: "idle" });
   const [adding, setAdding] = useState(false);
+  const [openRole, setOpenRole] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
   const [uid, setUid] = useState("");
 
   async function loadRoles() {
@@ -61,6 +63,7 @@ export default function ExperiencePage() {
     setAdding(false);
     if (error) return toast("Couldn't add a role", { description: error.message, variant: "danger" });
     setRows((rs) => [...(rs ?? []), data as Experience]);
+    setOpenRole((data as Experience).id);
     toast("New role added", { description: "Fill it in below; it saves as you type.", variant: "success" });
     setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 50);
   }
@@ -138,14 +141,24 @@ export default function ExperiencePage() {
               <FileArrowUp className="size-5" />
             </span>
             <div>
-              <p className="text-sm font-medium">Resume</p>
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                Resume
+                <button
+                  className="text-muted hover:text-foreground"
+                  aria-label="What happens when I upload a resume?"
+                  aria-expanded={showInfo}
+                  onClick={() => setShowInfo((v) => !v)}
+                >
+                  <Info className="size-4" />
+                </button>
+              </p>
               <p className="text-xs text-muted">
                 {resume ? (
                   <button className="text-accent hover:underline" onClick={openResume}>
                     {resume.name}
                   </button>
                 ) : (
-                  "Upload a PDF. Your roles fill in automatically, and the extension attaches it to job forms."
+                  "PDF, up to 5 MB"
                 )}
               </p>
             </div>
@@ -175,6 +188,17 @@ export default function ExperiencePage() {
           </div>
         </div>
 
+        {showInfo && (
+          <div className="flex items-start gap-2 rounded-xl bg-default/60 p-3 text-sm text-muted">
+            <p className="flex-1">
+              When you upload a PDF, your roles below fill in automatically from it. The Chrome extension also attaches this file to
+              &quot;Upload resume&quot; fields on job forms.
+            </p>
+            <button aria-label="Close" className="text-muted hover:text-foreground" onClick={() => setShowInfo(false)}>
+              <X weight="bold" className="size-4" />
+            </button>
+          </div>
+        )}
         {imp.kind === "working" && (
           <p className="flex items-center gap-2 text-sm text-muted">
             <CircleNotch className="size-4 animate-spin" /> {imp.step}
@@ -206,6 +230,11 @@ export default function ExperiencePage() {
         )}
       </Card>
 
+      <div className="flex items-center gap-3 pt-2">
+        <h2 className="text-sm font-medium">Your roles{rows?.length ? ` · ${rows.length}` : ""}</h2>
+        <div className="h-px flex-1 bg-separator" />
+      </div>
+
       {!rows && <Skeleton className="h-72 rounded-2xl" />}
       {rows?.length === 0 && imp.kind !== "working" && (
         <Card className="items-center gap-1 py-10 text-center">
@@ -214,64 +243,87 @@ export default function ExperiencePage() {
         </Card>
       )}
 
-      {rows?.map((r, i) => (
-        <Card key={r.id} className="gap-4">
-          <Card.Header className="flex-row items-center justify-between">
-            <Card.Title className="flex items-center gap-2">
-              {r.title || "New role"}
-              {r.company ? <span className="font-normal text-muted">· {r.company}</span> : null}
-              {saved[r.id] === "saving" && <span className="text-xs font-normal text-muted">Saving…</span>}
-              {saved[r.id] === "saved" && (
-                <span className="flex items-center gap-1 text-xs font-normal text-success">
-                  <CheckCircle className="size-3.5" /> Saved
-                </span>
-              )}
-            </Card.Title>
-            <div className="flex">
-              <Button size="sm" variant="ghost" isIconOnly aria-label="Move up" onPress={() => move(i, -1)} isDisabled={i === 0}>
-                <ArrowUp className="size-4" />
-              </Button>
-              <Button size="sm" variant="ghost" isIconOnly aria-label="Move down" onPress={() => move(i, 1)} isDisabled={i === rows.length - 1}>
-                <ArrowDown className="size-4" />
-              </Button>
-              <Button size="sm" variant="ghost" isIconOnly aria-label="Delete role" onPress={() => remove(r.id)}>
-                <Trash className="size-4" />
-              </Button>
-            </div>
-          </Card.Header>
-          <Card.Content className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <TextField value={r.title} onChange={(v) => update(r.id, { title: v })}>
-              <Label>Title</Label>
-              <Input placeholder="Product Designer" />
-            </TextField>
-            <TextField value={r.company} onChange={(v) => update(r.id, { company: v })}>
-              <Label>Company</Label>
-              <Input placeholder="Acme" />
-            </TextField>
-            <TextField value={r.start_date ?? ""} onChange={(v) => update(r.id, { start_date: v })}>
-              <Label>Start</Label>
-              <Input placeholder="Jan 2023" />
-            </TextField>
-            <TextField value={r.end_date ?? ""} onChange={(v) => update(r.id, { end_date: v })}>
-              <Label>End</Label>
-              <Input placeholder="Present" />
-            </TextField>
-            <TextField className="sm:col-span-2 lg:col-span-4" value={r.bullets} onChange={(v) => update(r.id, { bullets: v })}>
-              <Label>What you did (one achievement per line)</Label>
-              <TextArea rows={6} placeholder={"Redesigned onboarding, lifting activation from 32% to 47%\nLed a team of 3 designers…"} />
-              <Description>Include numbers, tools and scope. The AI can only use what&apos;s written here.</Description>
-            </TextField>
-            <TextField className="sm:col-span-2" value={r.skills ?? ""} onChange={(v) => update(r.id, { skills: v })}>
-              <Label>Skills / tools used</Label>
-              <Input placeholder="Figma, user research, design systems" />
-            </TextField>
-            <TextField className="sm:col-span-2" value={r.location ?? ""} onChange={(v) => update(r.id, { location: v })}>
-              <Label>Location</Label>
-              <Input placeholder="Bengaluru" />
-            </TextField>
-          </Card.Content>
-        </Card>
-      ))}
+      {rows && rows.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-separator bg-surface">
+          {rows.map((r, i) => {
+            const isOpen = openRole === r.id;
+            const lines = r.bullets.split("\n").filter((l) => l.trim()).length;
+            const dates = [r.start_date, r.end_date].filter(Boolean).join(" – ");
+            return (
+              <section key={r.id} className={i ? "border-t border-separator" : ""}>
+                <div className="flex items-center gap-2 px-4 py-3 sm:px-5">
+                  <button className="min-w-0 flex-1 text-left" aria-expanded={isOpen} onClick={() => setOpenRole(isOpen ? null : r.id)}>
+                    <p className="truncate text-sm font-medium">
+                      {r.title || "Untitled role"}
+                      {r.company ? <span className="font-normal text-muted"> · {r.company}</span> : null}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {dates || "No dates"} · {lines} achievement{lines === 1 ? "" : "s"}
+                      {saved[r.id] === "saving" && " · Saving…"}
+                      {saved[r.id] === "saved" && " · Saved"}
+                    </p>
+                  </button>
+                  <Button size="sm" variant="ghost" onPress={() => setOpenRole(isOpen ? null : r.id)} aria-expanded={isOpen}>
+                    {isOpen ? (
+                      <>
+                        Done <CaretDown className="size-3.5 rotate-180" />
+                      </>
+                    ) : (
+                      <>
+                        <PencilSimple className="size-3.5" /> Edit
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {isOpen && (
+                  <div className="grid gap-4 border-t border-separator px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-4">
+                    <TextField value={r.title} onChange={(v) => update(r.id, { title: v })}>
+                      <Label>Title</Label>
+                      <Input placeholder="Product Designer" />
+                    </TextField>
+                    <TextField value={r.company} onChange={(v) => update(r.id, { company: v })}>
+                      <Label>Company</Label>
+                      <Input placeholder="Acme" />
+                    </TextField>
+                    <TextField value={r.start_date ?? ""} onChange={(v) => update(r.id, { start_date: v })}>
+                      <Label>Start</Label>
+                      <Input placeholder="Jan 2023" />
+                    </TextField>
+                    <TextField value={r.end_date ?? ""} onChange={(v) => update(r.id, { end_date: v })}>
+                      <Label>End</Label>
+                      <Input placeholder="Present" />
+                    </TextField>
+                    <TextField className="sm:col-span-2 lg:col-span-4" value={r.bullets} onChange={(v) => update(r.id, { bullets: v })}>
+                      <Label>What you did (one achievement per line)</Label>
+                      <TextArea rows={6} placeholder={"Redesigned onboarding, lifting activation from 32% to 47%\nLed a team of 3 designers…"} />
+                      <Description>Include numbers, tools and scope. The AI can only use what&apos;s written here.</Description>
+                    </TextField>
+                    <TextField className="sm:col-span-2" value={r.skills ?? ""} onChange={(v) => update(r.id, { skills: v })}>
+                      <Label>Skills / tools used</Label>
+                      <Input placeholder="Figma, user research, design systems" />
+                    </TextField>
+                    <TextField className="sm:col-span-2" value={r.location ?? ""} onChange={(v) => update(r.id, { location: v })}>
+                      <Label>Location</Label>
+                      <Input placeholder="Bengaluru" />
+                    </TextField>
+                    <div className="flex items-center gap-1 sm:col-span-2 lg:col-span-4">
+                      <Button size="sm" variant="ghost" onPress={() => move(i, -1)} isDisabled={i === 0}>
+                        <ArrowUp className="size-4" /> Move up
+                      </Button>
+                      <Button size="sm" variant="ghost" onPress={() => move(i, 1)} isDisabled={i === rows.length - 1}>
+                        <ArrowDown className="size-4" /> Move down
+                      </Button>
+                      <Button size="sm" variant="ghost" className="ml-auto text-danger" onPress={() => remove(r.id)}>
+                        <Trash className="size-4" /> Delete role
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
