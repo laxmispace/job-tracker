@@ -1,5 +1,6 @@
-import { AIError, TAILOR_SYSTEM, chatJSON, prefsFrom } from "@/lib/server/ai";
+import { AIError, TAILOR_SYSTEM, chatJSON } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
+import { aiPrefs } from "@/lib/server/user-keys";
 import { loadProfile, profileContext } from "@/lib/server/profile";
 import type { Experience, Tailored } from "@/lib/types";
 
@@ -70,7 +71,7 @@ ${JSON.stringify(
 
   try {
     const r = await chatJSON<Omit<Tailored, "generated_at" | "provider" | "model">>(TAILOR_SYSTEM, prompt, {
-      prefs: prefsFrom(user),
+      prefs: await aiPrefs(db, user),
     });
     const out = r.data;
     const tailored: Tailored = {

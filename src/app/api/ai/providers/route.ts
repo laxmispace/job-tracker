@@ -1,39 +1,43 @@
-import {
-  AIError,
-  APP_SKILL,
-  activeProviderId,
-  chat,
-  listModels,
-  modelFor,
-  prefsFrom,
-  providers,
-  type ProviderId,
-} from "@/lib/server/ai";
+import { AIError, APP_SKILL, BYOK_PROVIDERS, activeProviderId, chat, listModels, modelFor, providers, type ProviderId } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
+import { aiPrefs, listUserKeys } from "@/lib/server/user-keys";
 
 export const OPTIONS = preflight;
 export const maxDuration = 60;
 
-/** GET → every provider, whether its key is set, and the user's current choice. Keys are never returned. */
+/**
+ * GET → every provider: whether it's usable for this user, whether the key is
+ * their own or the app's shared one, and their current choice. Keys are never
+ * returned; only the last 4 characters of the user's own keys.
+ */
 export async function GET(req: Request) {
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
-  const prefs = prefsFrom(auth.user);
+  const prefs = await aiPrefs(auth.db, auth.user);
+  const stored = await listUserKeys(auth.db);
   return json({
     active: activeProviderId(prefs),
     fallback: prefs.fallback !== false,
     instructions: prefs.instructions ?? "",
     skill: APP_SKILL,
-    providers: providers().map((p) => ({
-      id: p.id,
-      label: p.label,
-      note: p.note,
-      signup: p.signup,
-      keyEnv: p.keyEnv,
-      configured: p.configured,
-      defaultModel: p.defaultModel,
-      model: modelFor(p, prefs),
-    })),
+    sharedAllowed: prefs.shared !== false,
+    providers: providers(prefs).map((p) => {
+      const mine = stored.find((k) => k.provider === p.id);
+      return {
+        id: p.id,
+        label: p.label,
+        note: p.note,
+        signup: p.signup,
+        keyEnv: p.keyEnv,
+        configured: p.configured,
+        source: p.source,
+        byok: BYOK_PROVIDERS.includes(p.id),
+        keyLast4: mine?.key_last4 ?? null,
+        keyVia: mine?.source ?? null,
+        defaultModel: p.defaultModel,
+        model: modelFor(p, prefs),
+      };
+    }),
   });
 }
 
@@ -45,17 +49,19 @@ export async function POST(req: Request) {
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
   const body = (await req.json().catch(() => ({}))) as { action?: string; provider?: ProviderId; model?: string };
-  const p = providers().find((x) => x.id === body.provider);
+  const prefs = await aiPrefs(auth.db, auth.user);
+  const p = providers(prefs).find((x) => x.id === body.provider);
   if (!p) return json({ error: "Unknown provider." }, 400);
-  if (!p.configured) return json({ error: `Add ${p.keyEnv} in Vercel first.` }, 400);
+  if (!p.configured) return json({ error: `Connect ${p.label} first.` }, 400);
 
   try {
     if (body.action === "models") return json({ models: await listModels(p) });
     if (body.action === "test") {
-      const model = body.model || modelFor(p, prefsFrom(auth.user));
+      const model = body.model || modelFor(p, prefs);
       if (!model) return json({ error: "Pick a model first." }, 400);
       const t0 = Date.now();
       const r = await chat("You are a connectivity check.", "Reply with exactly: ready", {
+        prefs,
         provider: p.id,
         model,
         temperature: 0,

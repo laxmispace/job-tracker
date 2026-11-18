@@ -13,15 +13,17 @@
  */
 :root,
 [data-theme="light"] {
-  --background: oklch(0.975 0.002 286);
-  --surface: oklch(0.995 0.001 286);
-  --overlay: oklch(0.995 0.001 286);
+  --background: oklch(0.962 0.003 286); /* page: light grey so white panels stand out */
+  --surface: oklch(1 0 0);
+  --surface-secondary: oklch(0.975 0.002 286);
+  --overlay: oklch(1 0 0);
+  --default: oklch(0.94 0.003 286);
   --foreground: oklch(0.29 0.008 286); /* 13.9:1 on surface */
   --muted: oklch(0.5 0.012 286); /* 5.9:1 */
-  --separator: oklch(0.92 0.003 286);
+  --separator: oklch(0.9 0.004 286);
   --border: oklch(0.9 0.004 286);
 
-  --field-background: oklch(0.995 0.001 286);
+  --field-background: oklch(1 0 0);
   --field-border-width: 1px;
   --field-border: oklch(0.66 0.008 286); /* 3.1:1 */
   --field-border-hover: oklch(0.55 0.01 286);

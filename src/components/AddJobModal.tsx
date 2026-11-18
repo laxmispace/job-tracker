@@ -147,15 +147,15 @@ export default function AddJobModal({
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField value={d.title} onChange={set("title")}>
                 <Label>Role</Label>
-                <Input placeholder="Product Designer" />
+                <Input placeholder="e.g. Product Designer" />
               </TextField>
               <TextField value={d.company} onChange={set("company")}>
                 <Label>Company</Label>
-                <Input placeholder="Acme" />
+                <Input placeholder="e.g. Acme" />
               </TextField>
               <TextField value={d.location} onChange={set("location")}>
                 <Label>Location</Label>
-                <Input placeholder="Bengaluru · Hybrid" />
+                <Input placeholder="e.g. Bengaluru · Hybrid" />
               </TextField>
               <StatusSelect label="Status" value={d.status} onChange={(s) => setD((p) => ({ ...p, status: s }))} />
             </div>

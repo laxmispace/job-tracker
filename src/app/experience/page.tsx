@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowDown, ArrowUp, CaretDown, CheckCircle, CircleNotch, FileArrowUp, Info, PencilSimple, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
-import { Button, Card, Description, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
+import { ArrowDown, ArrowUp, Briefcase, CaretDown, CheckCircle, CircleNotch, FileArrowUp, Info, PencilSimple, Plus, Trash, UploadSimple, WarningCircle, X } from "@phosphor-icons/react";
+import { Button, Description, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
+import Panel from "@/components/Panel";
 import { api, sb } from "@/lib/supabase";
 import type { Experience } from "@/lib/types";
 
@@ -120,50 +121,41 @@ export default function ExperiencePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="max-w-2xl">
-          <h1 className="text-2xl font-semibold tracking-tight">Experience</h1>
-          <p className="text-sm text-muted">
-            Your master copy of every role. When you tailor for a job, the AI rephrases these bullets with the posting&apos;s
-            keywords. It never adds anything that isn&apos;t written here.
-          </p>
-        </div>
-        <Button variant="secondary" onPress={addRole} isPending={adding}>
-          {adding ? <CircleNotch className="size-4 animate-spin" /> : <Plus className="size-4" />} Add role
-        </Button>
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-semibold tracking-tight">Experience</h1>
+        <p className="text-sm text-muted">
+          Your master copy of every role. When you tailor for a job, the AI rephrases these bullets with the posting&apos;s keywords.
+          It never adds anything that isn&apos;t written here.
+        </p>
       </div>
 
       {/* Resume → roles, automatically */}
-      <Card className="gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent">
-              <FileArrowUp className="size-5" />
-            </span>
-            <div>
-              <p className="flex items-center gap-1.5 text-sm font-medium">
-                Resume
-                <button
-                  className="text-muted hover:text-foreground"
-                  aria-label="What happens when I upload a resume?"
-                  aria-expanded={showInfo}
-                  onClick={() => setShowInfo((v) => !v)}
-                >
-                  <Info className="size-4" />
-                </button>
-              </p>
-              <p className="text-xs text-muted">
-                {resume ? (
-                  <button className="text-accent hover:underline" onClick={openResume}>
-                    {resume.name}
-                  </button>
-                ) : (
-                  "PDF, up to 5 MB"
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
+      <Panel
+        icon={FileArrowUp}
+        title={
+          <span className="flex items-center gap-1.5">
+            Resume
+            <button
+              className="text-muted hover:text-foreground"
+              aria-label="What happens when I upload a resume?"
+              aria-expanded={showInfo}
+              onClick={() => setShowInfo((v) => !v)}
+            >
+              <Info className="size-4" />
+            </button>
+          </span>
+        }
+        description={
+          resume ? (
+            <button className="text-accent hover:underline" onClick={openResume}>
+              {resume.name}
+            </button>
+          ) : (
+            "PDF, up to 5 MB"
+          )
+        }
+        actions={
+          <>
             {resume && /\.pdf$/i.test(resume.name) && (
               <Button size="sm" variant="ghost" onPress={() => importFromResume(false)} isDisabled={imp.kind === "working"}>
                 Read again
@@ -180,71 +172,78 @@ export default function ExperiencePage() {
                   if (f) void uploadResume(f);
                 }}
               />
-              <span className="inline-flex h-9 items-center gap-2 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground hover:opacity-90">
-                <FileArrowUp className="size-4" />
-                {resume ? "Upload new resume" : "Upload resume"}
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-accent px-3.5 text-sm font-medium text-accent-foreground hover:opacity-90">
+                <UploadSimple className="size-4" />
+                {resume ? "Replace" : "Upload"}
               </span>
             </label>
-          </div>
-        </div>
-
-        {showInfo && (
-          <div className="flex items-start gap-2 rounded-xl bg-default/60 p-3 text-sm text-muted">
-            <p className="flex-1">
-              When you upload a PDF, your roles below fill in automatically from it. The Chrome extension also attaches this file to
-              &quot;Upload resume&quot; fields on job forms.
-            </p>
-            <button aria-label="Close" className="text-muted hover:text-foreground" onClick={() => setShowInfo(false)}>
-              <X weight="bold" className="size-4" />
-            </button>
-          </div>
-        )}
-        {imp.kind === "working" && (
-          <p className="flex items-center gap-2 text-sm text-muted">
-            <CircleNotch className="size-4 animate-spin" /> {imp.step}
-          </p>
-        )}
-        {imp.kind === "done" && (
-          <p className="flex items-center gap-2 text-sm text-success">
-            <CheckCircle className="size-4" /> {imp.text}
-          </p>
-        )}
-        {imp.kind === "error" && (
-          <p className="flex items-center gap-2 text-sm text-danger">
-            <WarningCircle className="size-4" /> {imp.text}
-          </p>
-        )}
-        {imp.kind === "ask-replace" && (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-warning/10 p-3 text-sm">
-            <span className="flex-1">
-              Resume read. You already have {imp.existing} role{imp.existing === 1 ? "" : "s"} here. Replace them with what&apos;s in the
-              resume?
-            </span>
-            <Button size="sm" variant="secondary" onPress={() => setImp({ kind: "done", text: "Kept your roles. The AI still uses the resume text for context." })}>
-              Keep mine
-            </Button>
-            <Button size="sm" onPress={() => importFromResume(true)}>
-              Replace
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      <div className="flex items-center gap-3 pt-2">
-        <h2 className="text-sm font-medium">Your roles{rows?.length ? ` · ${rows.length}` : ""}</h2>
-        <div className="h-px flex-1 bg-separator" />
-      </div>
+          </>
+        }
+        bodyClassName="space-y-3 p-4 sm:p-5"
+      >
+        {showInfo || imp.kind !== "idle" ? (
+          <>
+            {showInfo && (
+              <div className="flex items-start gap-2 rounded-xl bg-default/60 p-3 text-sm text-muted">
+                <p className="flex-1">
+                  When you upload a PDF, your roles below fill in automatically from it. The Chrome extension also attaches this file to
+                  &quot;Upload resume&quot; fields on job forms.
+                </p>
+                <button aria-label="Close" className="text-muted hover:text-foreground" onClick={() => setShowInfo(false)}>
+                  <X weight="bold" className="size-4" />
+                </button>
+              </div>
+            )}
+            {imp.kind === "working" && (
+              <p className="flex items-center gap-2 text-sm text-muted">
+                <CircleNotch className="size-4 animate-spin" /> {imp.step}
+              </p>
+            )}
+            {imp.kind === "done" && (
+              <p className="flex items-center gap-2 text-sm text-success">
+                <CheckCircle className="size-4" /> {imp.text}
+              </p>
+            )}
+            {imp.kind === "error" && (
+              <p className="flex items-center gap-2 text-sm text-danger">
+                <WarningCircle className="size-4" /> {imp.text}
+              </p>
+            )}
+            {imp.kind === "ask-replace" && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-warning/10 p-3 text-sm">
+                <span className="flex-1">
+                  Resume read. You already have {imp.existing} role{imp.existing === 1 ? "" : "s"} here. Replace them with what&apos;s in the
+                  resume?
+                </span>
+                <Button size="sm" variant="secondary" onPress={() => setImp({ kind: "done", text: "Kept your roles. The AI still uses the resume text for context." })}>
+                  Keep mine
+                </Button>
+                <Button size="sm" onPress={() => importFromResume(true)}>
+                  Replace
+                </Button>
+              </div>
+            )}
+          </>
+        ) : undefined}
+      </Panel>
 
       {!rows && <Skeleton className="h-72 rounded-2xl" />}
-      {rows?.length === 0 && imp.kind !== "working" && (
-        <Card className="items-center gap-1 py-10 text-center">
-          <Card.Title>No roles yet</Card.Title>
-          <Card.Description>Upload your resume above, or add a role by hand.</Card.Description>
-        </Card>
-      )}
-
-      {rows && rows.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-separator bg-surface">
+      {rows && (
+        <Panel
+          icon={Briefcase}
+          title="Your roles"
+          description="Click a role to edit it. Changes save as you type."
+          meta={rows.length ? `${rows.length} role${rows.length === 1 ? "" : "s"}` : undefined}
+          actions={
+            <Button size="sm" variant="secondary" onPress={addRole} isPending={adding}>
+              {adding ? <CircleNotch className="size-4 animate-spin" /> : <Plus className="size-4" />} Add role
+            </Button>
+          }
+          bodyClassName=""
+        >
+          {rows.length === 0 && imp.kind !== "working" && (
+            <p className="px-4 py-8 text-center text-sm text-muted sm:px-5">No roles yet. Upload your resume above, or add a role by hand.</p>
+          )}
           {rows.map((r, i) => {
             const isOpen = openRole === r.id;
             const lines = r.bullets.split("\n").filter((l) => l.trim()).length;
@@ -279,19 +278,19 @@ export default function ExperiencePage() {
                   <div className="grid gap-4 border-t border-separator px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-4">
                     <TextField value={r.title} onChange={(v) => update(r.id, { title: v })}>
                       <Label>Title</Label>
-                      <Input placeholder="Product Designer" />
+                      <Input placeholder="e.g. Product Designer" />
                     </TextField>
                     <TextField value={r.company} onChange={(v) => update(r.id, { company: v })}>
                       <Label>Company</Label>
-                      <Input placeholder="Acme" />
+                      <Input placeholder="e.g. Acme" />
                     </TextField>
                     <TextField value={r.start_date ?? ""} onChange={(v) => update(r.id, { start_date: v })}>
                       <Label>Start</Label>
-                      <Input placeholder="Jan 2023" />
+                      <Input placeholder="e.g. Jan 2023" />
                     </TextField>
                     <TextField value={r.end_date ?? ""} onChange={(v) => update(r.id, { end_date: v })}>
                       <Label>End</Label>
-                      <Input placeholder="Present" />
+                      <Input placeholder="e.g. Present" />
                     </TextField>
                     <TextField className="sm:col-span-2 lg:col-span-4" value={r.bullets} onChange={(v) => update(r.id, { bullets: v })}>
                       <Label>What you did (one achievement per line)</Label>
@@ -300,11 +299,11 @@ export default function ExperiencePage() {
                     </TextField>
                     <TextField className="sm:col-span-2" value={r.skills ?? ""} onChange={(v) => update(r.id, { skills: v })}>
                       <Label>Skills / tools used</Label>
-                      <Input placeholder="Figma, user research, design systems" />
+                      <Input placeholder="e.g. Figma, user research, design systems" />
                     </TextField>
                     <TextField className="sm:col-span-2" value={r.location ?? ""} onChange={(v) => update(r.id, { location: v })}>
                       <Label>Location</Label>
-                      <Input placeholder="Bengaluru" />
+                      <Input placeholder="e.g. Bengaluru" />
                     </TextField>
                     <div className="flex items-center gap-1 sm:col-span-2 lg:col-span-4">
                       <Button size="sm" variant="ghost" onPress={() => move(i, -1)} isDisabled={i === 0}>
@@ -322,7 +321,7 @@ export default function ExperiencePage() {
               </section>
             );
           })}
-        </div>
+        </Panel>
       )}
     </div>
   );

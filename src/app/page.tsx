@@ -1,14 +1,19 @@
 "use client";
 
-import { Briefcase, Plus } from "@phosphor-icons/react";
+import { Briefcase, PlugsConnected, Plus } from "@phosphor-icons/react";
 import { Button, Card, SearchField, Skeleton, Tabs, toast } from "@heroui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddJobModal from "@/components/AddJobModal";
 import JobCard from "@/components/JobCard";
+import Panel from "@/components/Panel";
+import Link from "next/link";
+import { useAIPrefs } from "@/lib/ai-prefs";
 import { sb } from "@/lib/supabase";
 import { STATUSES, type Job, type Status } from "@/lib/types";
 
 export default function JobsPage() {
+  const ai = useAIPrefs();
+  const noModel = ai.state ? !ai.state.providers.some((p) => p.configured) : false;
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [q, setQ] = useState("");
@@ -82,7 +87,7 @@ export default function JobsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Applications</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
           <p className="text-sm text-muted">
             {counts.all} tracked · {active} in progress · {responseRate}% response rate
           </p>
@@ -100,6 +105,19 @@ export default function JobsPage() {
           </Button>
         </div>
       </div>
+
+      {noModel && (
+        <Panel
+          icon={PlugsConnected}
+          title="Connect an AI model to tailor your resume"
+          description="Use your own free OpenRouter, Gemini or Groq account. It takes one click."
+          actions={
+            <Link href="/settings" className="inline-flex h-8 items-center rounded-full bg-accent px-3.5 text-sm font-medium text-accent-foreground hover:opacity-90">
+              Connect
+            </Link>
+          }
+        />
+      )}
 
       <Tabs selectedKey={filter} onSelectionChange={(k) => setFilter(String(k))} className="w-full">
         <Tabs.ListContainer className="overflow-x-auto">

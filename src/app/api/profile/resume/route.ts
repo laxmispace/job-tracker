@@ -1,6 +1,7 @@
 import { extractText, getDocumentProxy } from "unpdf";
-import { AIError, chatJSON, prefsFrom } from "@/lib/server/ai";
+import { AIError, chatJSON } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
+import { aiPrefs } from "@/lib/server/user-keys";
 
 export const OPTIONS = preflight;
 export const maxDuration = 60;
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
 
   let parsed: Parsed[] = [];
   try {
-    const r = await chatJSON<{ experiences: Parsed[] }>(SYSTEM, text.slice(0, 20000), { prefs: prefsFrom(user) });
+    const r = await chatJSON<{ experiences: Parsed[] }>(SYSTEM, text.slice(0, 20000), { prefs: await aiPrefs(db, user) });
     parsed = r.data.experiences ?? [];
   } catch (e) {
     return json({ saved: true, error: e instanceof AIError ? e.message : "AI import failed." }, 502);

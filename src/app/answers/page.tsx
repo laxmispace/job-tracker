@@ -1,11 +1,48 @@
 "use client";
 
-import { ArrowsClockwise, CaretDown, CheckCircle, CircleNotch, Globe, Laptop, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
+import {
+  ArrowsClockwise,
+  Briefcase,
+  ChatCircleText,
+  CheckCircle,
+  CircleNotch,
+  Globe,
+  GraduationCap,
+  IdentificationCard,
+  Laptop,
+  Link as LinkIcon,
+  ListChecks,
+  PaintBrush,
+  Plus,
+  PlusCircle,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash,
+  UsersThree,
+  WarningCircle,
+  X,
+  type Icon,
+} from "@phosphor-icons/react";
 import { Button, Chip, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, RETIRED_KEYS, SEED_QUESTIONS } from "@/lib/seed-questions";
+import Panel from "@/components/Panel";
 import { api, sb } from "@/lib/supabase";
 import type { Answer } from "@/lib/types";
+
+const CATEGORY_ICON: Record<string, Icon> = {
+  personal: IdentificationCard,
+  links: LinkIcon,
+  craft: PaintBrush,
+  work: Briefcase,
+  preferences: SlidersHorizontal,
+  education: GraduationCap,
+  authorization: ShieldCheck,
+  screening: ListChecks,
+  eeo: UsersThree,
+  long: ChatCircleText,
+  other: PlusCircle,
+};
 
 const SEED = Object.fromEntries(SEED_QUESTIONS.map((q) => [q.key, q]));
 type SaveState = "saving" | "saved" | "error";
@@ -121,7 +158,7 @@ export default function ProfilePage() {
     <div className="space-y-4">
       {/* Header: title + byline left, progress right */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-xl space-y-1">
+        <div className="max-w-2xl space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
           <p className="text-sm text-muted">Your answers fill job application forms for you. Fill a section at a time; it all saves as you type.</p>
         </div>
@@ -183,27 +220,25 @@ export default function ProfilePage() {
             const st = list.map((r) => status[r.id]);
             const sectionState = st.includes("saving") ? "saving" : st.includes("error") ? "error" : st.includes("saved") ? "saved" : null;
             return (
-              <section key={c.id} className="overflow-hidden rounded-2xl border border-separator bg-surface">
-                <button
-                  className="flex w-full items-center gap-3 bg-default/50 px-4 py-3 text-left transition-colors hover:bg-default sm:px-5"
-                  aria-expanded={isOpen}
-                  onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
-                >
-                  <span className="flex-1 text-xs font-semibold tracking-wider text-muted uppercase">{c.label}</span>
-                  {list.length > 0 && (
-                    <span className={`text-xs tabular-nums ${done === list.length ? "text-success" : "text-muted"}`}>
-                      {done === list.length ? (
-                        <span className="flex items-center gap-1">
-                          <CheckCircle className="size-3.5" /> Done
-                        </span>
-                      ) : (
-                        `${done} of ${list.length}`
-                      )}
-                    </span>
-                  )}
-                  <CaretDown className={`size-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                </button>
-                {isOpen && (
+              <Panel
+                key={c.id}
+                icon={CATEGORY_ICON[c.id] ?? PlusCircle}
+                title={c.label}
+                open={isOpen}
+                onToggle={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}
+                bodyClassName=""
+                meta={
+                  list.length > 0 ? (
+                    done === list.length ? (
+                      <span className="flex items-center gap-1 text-success">
+                        <CheckCircle className="size-3.5" /> Done
+                      </span>
+                    ) : (
+                      `${done} of ${list.length}`
+                    )
+                  ) : null
+                }
+              >
                   <>
                     <div className="grid grid-cols-1 gap-x-5 gap-y-4 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3">
                       {list.map((r) => (
@@ -259,8 +294,7 @@ export default function ProfilePage() {
                       </div>
                     )}
                   </>
-                )}
-              </section>
+              </Panel>
             );
           })}
         </>
@@ -374,38 +408,34 @@ function PortfolioCard({
 
   const pages = profile.portfolio_pages ?? [];
   return (
-    <div className="rounded-2xl border border-separator bg-surface p-4 sm:p-5">
-      <div className="flex items-start gap-3">
-        <Globe className="mt-0.5 size-5 shrink-0 text-accent" />
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
-            <p className="text-sm font-medium">Portfolio</p>
-            <p className="text-sm text-muted">The app reads your case studies so every AI model can mention your real projects.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <TextField className="min-w-0 flex-1" value={value} onChange={onChange} type="url" aria-label="Portfolio URL">
-              <Input placeholder="https://yourname.design" onBlur={() => value.trim() && value.trim() !== lastRead.current && read()} />
-            </TextField>
-            <Button variant="secondary" className="shrink-0" onPress={() => read()} isPending={reading} isDisabled={!value.trim()}>
-              {reading ? <CircleNotch className="size-4 animate-spin" /> : <ArrowsClockwise className="size-4" />}
-              <span className="hidden sm:inline">{pages.length ? "Read again" : "Read"}</span>
-            </Button>
-          </div>
-          {reading && <p className="text-sm text-muted">Reading your portfolio and its case studies…</p>}
-          {note && <p className={`text-sm ${note.tone === "ok" ? "text-success" : note.tone === "warn" ? "text-warning" : "text-danger"}`}>{note.text}</p>}
-          {!note && pages.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {pages.slice(0, 8).map((p) => (
-                <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer">
-                  <Chip size="sm" variant="soft">
-                    {p.title.slice(0, 36) || p.url}
-                  </Chip>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+    <Panel
+      icon={Globe}
+      title="Portfolio"
+      description="The app reads your case studies so every AI model can mention your real projects."
+      bodyClassName="space-y-3 p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-2">
+        <TextField className="min-w-0 flex-1" value={value} onChange={onChange} type="url" aria-label="Portfolio URL">
+          <Input placeholder="https://yourname.design" onBlur={() => value.trim() && value.trim() !== lastRead.current && read()} />
+        </TextField>
+        <Button variant="secondary" className="shrink-0" onPress={() => read()} isPending={reading} isDisabled={!value.trim()}>
+          {reading ? <CircleNotch className="size-4 animate-spin" /> : <ArrowsClockwise className="size-4" />}
+          <span className="hidden sm:inline">{pages.length ? "Read again" : "Read portfolio"}</span>
+        </Button>
       </div>
-    </div>
+      {reading && <p className="text-sm text-muted">Reading your portfolio and its case studies…</p>}
+      {note && <p className={`text-sm ${note.tone === "ok" ? "text-success" : note.tone === "warn" ? "text-warning" : "text-danger"}`}>{note.text}</p>}
+      {!note && pages.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {pages.slice(0, 8).map((p) => (
+            <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer">
+              <Chip size="sm" variant="soft">
+                {p.title.slice(0, 36) || p.url}
+              </Chip>
+            </a>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }

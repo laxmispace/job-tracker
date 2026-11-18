@@ -12,7 +12,7 @@ Track every application as a card, fill application forms from your own answers 
 ## 1. Supabase (5 min)
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**. Then do the same with `supabase/002_grants_and_profile.sql` (table access for signed-in users + the profile table).
+2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**. Then do the same with `supabase/002_grants_and_profile.sql` and `supabase/003_user_ai_keys.sql`.
 3. **Project Settings → API**: copy the **Project URL** and the **anon / publishable key**.
 4. **Authentication → URL Configuration**: set **Site URL** to your deployed app URL (after step 4). Email sign-up is on by default; turn off *Confirm email* under **Authentication → Providers → Email** if you don't want the confirmation step.
 
@@ -33,6 +33,19 @@ Add one env var per provider you want (Vercel → Project → Settings → Envir
 **Switching:** use the **✨ dropdown** in the app header (every page, phone too) or in the extension popup. **AI settings** lets you pick each provider's model from its live model list (free ones are tagged), test a key, and turn **automatic fallback** on or off. With fallback on, if your chosen model hits a rate limit or fails, the next configured one answers, and the card shows which model did the work.
 
 **Context never gets lost:** every request, to every model, starts with the same *role brief* (what the app is, what the model's job is, the no-fabrication rules), then your **standing instructions** from AI settings, then your data (answers bank, experience, the job description, and anything already prepared for that job). The context lives in the app, not inside any one model, so you can switch mid-task. The brief is `APP_SKILL` in `src/lib/server/ai.ts`; you can read it in AI settings.
+
+### Letting other people use the app (bring your own key)
+
+Anyone who signs in can connect **their own** AI account in **AI settings**:
+
+- **OpenRouter: one click.** They approve on OpenRouter and come straight back; one key covers Gemini, DeepSeek, Qwen, Grok and many free models.
+- **Gemini, Groq, DeepSeek, Qwen, xAI:** paste a key (a "Get a key" link opens the right page). Keys are checked with the provider before saving.
+
+Personal keys are encrypted with AES-256-GCM on the server (key derived from `KEY_ENCRYPTION_SECRET`, or the Supabase JWT secret if that's not set), stored in `user_ai_keys`, and never sent back to the browser.
+
+To stop other users spending **your** keys, set `OWNER_EMAILS` in Vercel to your sign-in email (comma-separate several). Your env-var keys then work only for those accounts; everyone else must connect their own. If `OWNER_EMAILS` is unset, your keys are shared with every user.
+
+Before opening sign-ups, publish the Google sign-in app (Google Cloud → Google Auth Platform → Audience → **Publish app**), otherwise only listed test users can sign in. Run `supabase/003_user_ai_keys.sql` once.
 
 ## 3. Run locally
 

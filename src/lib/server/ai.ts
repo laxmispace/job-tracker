@@ -102,7 +102,8 @@ const PRESETS: Record<ProviderId, Preset> = {
   },
 };
 
-export type Provider = Preset & { apiKey: string; configured: boolean; keyEnv: string };
+export type KeySource = "user" | "shared" | null;
+export type Provider = Preset & { apiKey: string; configured: boolean; keyEnv: string; source: KeySource; userKey: boolean };
 
 const env = (k: string) => (process.env[k] ?? "").trim();
 
@@ -121,7 +122,7 @@ function shortNameKey(id: ProviderId): string {
   return "";
 }
 
-function resolve(id: ProviderId): Provider {
+function resolve(id: ProviderId, ctx: KeyContext = {}): Provider {
   const p = PRESETS[id];
   const ID = id.toUpperCase();
   // Older single-provider setup (AI_PROVIDER + AI_API_KEY) still works.
@@ -133,21 +134,57 @@ function resolve(id: ProviderId): Provider {
   const defaultModel = env(`${ID}_MODEL`) || (legacy || legacyCustom ? env("AI_MODEL") : "") || p.defaultModel;
   const label = id === "custom" ? env("CUSTOM_NAME") || p.label : p.label;
 
-  let configured: boolean;
-  if (id === "ollama") configured = Boolean(env("OLLAMA_BASE_URL") || env("OLLAMA_MODEL"));
-  else if (id === "custom") configured = Boolean(baseUrl);
-  else configured = Boolean(apiKey);
+  const shared = ctx.shared !== false;
+  const userKey = ctx.keys?.[id] ?? "";
 
-  return { ...p, label, apiKey, baseUrl, defaultModel, configured, keyEnv: id === "ollama" ? "OLLAMA_BASE_URL" : id === "custom" ? "CUSTOM_BASE_URL" : `${ID}_API_KEY` };
+  let sharedOk: boolean;
+  if (id === "ollama") sharedOk = Boolean(env("OLLAMA_BASE_URL") || env("OLLAMA_MODEL"));
+  else if (id === "custom") sharedOk = Boolean(baseUrl);
+  else sharedOk = Boolean(apiKey);
+  sharedOk = sharedOk && shared;
+
+  const source: KeySource = userKey ? "user" : sharedOk ? "shared" : null;
+  return {
+    ...p,
+    label,
+    apiKey: userKey || (sharedOk ? apiKey : ""),
+    baseUrl,
+    defaultModel,
+    configured: Boolean(source),
+    source,
+    userKey: Boolean(userKey),
+    keyEnv: id === "ollama" ? "OLLAMA_BASE_URL" : id === "custom" ? "CUSTOM_BASE_URL" : `${ID}_API_KEY`,
+  };
 }
 
-export function providers(): Provider[] {
-  return PROVIDER_IDS.map(resolve);
+/**
+ * Keys a request may use: the signed-in user's own keys, plus the app's
+ * shared keys (server env vars) only for the owner. Set OWNER_EMAILS to a
+ * comma-separated list so everyone else must bring their own key; if it's
+ * unset, shared keys are open to all users.
+ */
+export type KeyContext = { keys?: Partial<Record<ProviderId, string>>; shared?: boolean };
+
+export function sharedKeysAllowed(email: string | null | undefined) {
+  const owners = env("OWNER_EMAILS")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (!owners.length) return true;
+  return Boolean(email && owners.includes(email.toLowerCase()));
 }
+
+/** Providers that can actually serve keys to the user (own or shared). */
+export function providers(ctx: KeyContext = {}): Provider[] {
+  return PROVIDER_IDS.map((id) => resolve(id, ctx));
+}
+
+/** Providers a user may add their own key for (not local/custom ones). */
+export const BYOK_PROVIDERS: ProviderId[] = ["openrouter", "gemini", "deepseek", "groq", "qwen", "xai"];
 
 // ─────────────────────────── user preferences ───────────────────────────
 
-export type AIPrefs = {
+export type AIPrefs = KeyContext & {
   provider?: ProviderId;
   models?: Partial<Record<ProviderId, string>>;
   fallback?: boolean;
@@ -202,7 +239,7 @@ export function prefsFrom(user: User | null | undefined): AIPrefs {
 }
 
 export function activeProviderId(prefs: AIPrefs): ProviderId | null {
-  const all = providers();
+  const all = providers(prefs);
   const ok = (id?: string) => all.find((p) => p.id === id && p.configured)?.id ?? null;
   return ok(prefs.provider) ?? ok(env("AI_PROVIDER").toLowerCase()) ?? all.find((p) => p.configured)?.id ?? null;
 }
@@ -262,7 +299,7 @@ async function callOnce(p: Provider, model: string, system: string, user: string
  */
 async function run<T>(system: string, user: string, parse: (text: string) => T, opts: RunOptions = {}): Promise<AIResult<T>> {
   const prefs = opts.prefs ?? {};
-  const all = providers();
+  const all = providers(prefs);
 
   let order: Provider[];
   if (opts.provider) {
@@ -271,7 +308,7 @@ async function run<T>(system: string, user: string, parse: (text: string) => T, 
     order = [p];
   } else {
     const first = activeProviderId(prefs);
-    if (!first) throw new AIError("No AI key is set. Add one in Vercel (e.g. GEMINI_API_KEY) and redeploy.");
+    if (!first) throw new AIError("No AI model is connected yet. Open AI settings and connect one; OpenRouter takes one click.");
     const rest = prefs.fallback === false ? [] : all.filter((p) => p.configured && p.id !== first);
     order = [all.find((p) => p.id === first)!, ...rest];
   }

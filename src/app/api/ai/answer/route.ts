@@ -1,6 +1,7 @@
 import { canonicalUrl } from "@/lib/job-url";
-import { AIError, ANSWER_SYSTEM, chat, prefsFrom } from "@/lib/server/ai";
+import { AIError, ANSWER_SYSTEM, chat } from "@/lib/server/ai";
 import { json, preflight, requireUser } from "@/lib/server/auth";
+import { aiPrefs } from "@/lib/server/user-keys";
 import { loadProfile, profileContext } from "@/lib/server/profile";
 import type { Answer, Experience, Tailored } from "@/lib/types";
 
@@ -69,7 +70,7 @@ MY EXPERIENCE:
 ${experience || "(none)"}`;
 
   try {
-    const r = await chat(ANSWER_SYSTEM, prompt, { temperature: 0.5, prefs: prefsFrom(user) });
+    const r = await chat(ANSWER_SYSTEM, prompt, { temperature: 0.5, prefs: await aiPrefs(db, user) });
     return json({ answer: r.data, provider: r.label, model: r.model });
   } catch (e) {
     return json({ error: e instanceof AIError ? e.message : `AI request failed: ${(e as Error).message}` }, 502);
