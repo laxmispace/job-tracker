@@ -23,10 +23,11 @@ import {
   X,
   type Icon,
 } from "@phosphor-icons/react";
-import { Button, Chip, Input, Label, Skeleton, TextArea, TextField, toast } from "@heroui/react";
+import { Button, Chip, Input, Label, Skeleton, TextField, toast } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, RETIRED_KEYS, SEED_QUESTIONS } from "@/lib/seed-questions";
 import Panel from "@/components/Panel";
+import ProfileField, { fieldRank } from "@/components/ProfileField";
 import { api, sb } from "@/lib/supabase";
 import type { Answer } from "@/lib/types";
 
@@ -103,6 +104,17 @@ export default function ProfilePage() {
         if (error) toast("Couldn't prepare your questions", { description: error.message, variant: "danger" });
         list = ((await db.from("answers").select("*").order("sort")).data as Answer[]) ?? [];
       }
+      // Keep stored wording in step with the form, so AI prompts read the same question you see.
+      const stale = list.filter((r) => {
+        const q = SEED[r.key];
+        return q && (r.question !== q.question || r.long_form !== Boolean(q.long_form));
+      });
+      if (stale.length) {
+        await Promise.all(
+          stale.map((r) => db.from("answers").update({ question: SEED[r.key].question, long_form: Boolean(SEED[r.key].long_form) }).eq("id", r.id)),
+        );
+        list = list.map((r) => (SEED[r.key] ? { ...r, question: SEED[r.key].question, long_form: Boolean(SEED[r.key].long_form) } : r));
+      }
       setRows(list);
       // Open the first section that still has blanks
       const firstGap = CATEGORIES.find((c) =>
@@ -149,7 +161,11 @@ export default function ProfilePage() {
   const pct = visible.length ? Math.round((answered / visible.length) * 100) : 0;
   const grouped = useMemo(() => {
     const g: Record<string, Answer[]> = {};
-    visible.forEach((r) => (g[SEED[r.key]?.category ?? r.category] ??= []).push(r));
+    const order = (r: Answer) => {
+      const q = SEED[r.key];
+      return fieldRank(q?.field, q?.long_form ?? r.long_form) * 10000 + (q ? SEED_QUESTIONS.indexOf(q) : 1000 + r.sort);
+    };
+    [...visible].sort((a, b) => order(a) - order(b)).forEach((r) => (g[SEED[r.key]?.category ?? r.category] ??= []).push(r));
     return g;
   }, [visible]);
   const portfolioRow = rows?.find((r) => r.key === "portfolio");
@@ -320,9 +336,8 @@ function QuestionField({
 }) {
   const seed = SEED[r.key];
   const question = seed?.question ?? r.question;
-  const raw = seed?.hint ?? "";
   // Show examples as examples, so they never look like a saved answer.
-  const hint = raw && !/^(e\.g\.|only|or:)/i.test(raw) ? `e.g. ${raw}` : raw;
+  const hint = seed?.help ?? (seed?.hint ? `e.g. ${seed.hint}` : "");
   const long = seed?.long_form ?? r.long_form;
   const [draft, setDraft] = useState(r.aliases.join(", "));
   const mark =
@@ -333,26 +348,25 @@ function QuestionField({
     ) : state === "error" ? (
       <WarningCircle className="size-4 text-danger" aria-label="Not saved" />
     ) : null;
+  const wide = long || seed?.field?.kind === "multi";
   return (
-    <div className={long ? "col-span-full" : ""}>
-      <TextField value={r.answer} onChange={onAnswer}>
-        <Label className="flex items-center justify-between gap-2">
-          <span>{question}</span>
-          {onDelete && (
+    <div className={wide ? "col-span-full" : ""}>
+      <ProfileField
+        field={seed?.field}
+        long={long}
+        label={question}
+        value={r.answer}
+        placeholder={hint || "Your answer"}
+        mark={mark}
+        onChange={onAnswer}
+        action={
+          onDelete && (
             <button type="button" className="text-muted hover:text-danger" onClick={onDelete} aria-label="Delete this question">
               <Trash className="size-3.5" />
             </button>
-          )}
-        </Label>
-        <div className="relative">
-          {long ? (
-            <TextArea rows={4} placeholder={hint || "Your answer"} className="w-full pr-9" />
-          ) : (
-            <Input placeholder={hint || "Your answer"} className="w-full pr-9" />
-          )}
-          {mark && <span className={`pointer-events-none absolute right-3 ${long ? "top-3" : "top-1/2 -translate-y-1/2"}`}>{mark}</span>}
-        </div>
-      </TextField>
+          )
+        }
+      />
       {phrases && (
         <input
           className="field-native mt-2 w-full px-2.5 py-1.5 text-xs text-foreground"

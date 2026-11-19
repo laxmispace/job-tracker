@@ -238,6 +238,17 @@
     el.dispatchEvent(new Event("blur", { bubbles: true }));
   }
 
+  // Dates are saved as YYYY-MM-DD; text boxes get the order their placeholder asks for.
+  function formatFor(el, answer) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(answer || "");
+    if (!m || el.type === "date") return answer;
+    const [, y, mo, d] = m;
+    const ph = (el.placeholder || "").toLowerCase();
+    if (/mm.?dd/.test(ph)) return `${mo}/${d}/${y}`;
+    if (/yyyy.?mm/.test(ph)) return answer;
+    return `${d}/${mo}/${y}`;
+  }
+
   function pickOption(options, answer) {
     const A = norm(answer);
     if (!A) return null;
@@ -321,7 +332,7 @@
 
       if (el.value && el.value.trim()) continue; // never overwrite what's there
       if (a) {
-        setNativeValue(el, a.answer);
+        setNativeValue(el, formatFor(el, a.answer));
         mark(el, "filled");
         filled++;
         if (el.tagName === "TEXTAREA" || a.long_form) addAiButton(el, label, a.answer);
