@@ -27,7 +27,7 @@ import { Button, Chip, Input, Label, Skeleton, TextField, toast } from "@heroui/
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, RETIRED_KEYS, SEED_QUESTIONS } from "@/lib/seed-questions";
 import Panel from "@/components/Panel";
-import ProfileField, { fieldRank } from "@/components/ProfileField";
+import ProfileField, { fieldRank, normalizeAnswer } from "@/components/ProfileField";
 import { api, sb } from "@/lib/supabase";
 import type { Answer } from "@/lib/types";
 
@@ -105,15 +105,21 @@ export default function ProfilePage() {
         list = ((await db.from("answers").select("*").order("sort")).data as Answer[]) ?? [];
       }
       // Keep stored wording in step with the form, so AI prompts read the same question you see.
-      const stale = list.filter((r) => {
+      // Also convert older free-text answers to the new format when it's unambiguous.
+      const patches = list.flatMap((r) => {
         const q = SEED[r.key];
-        return q && (r.question !== q.question || r.long_form !== Boolean(q.long_form));
+        if (!q) return [];
+        const patch: Partial<Answer> = {};
+        if (r.question !== q.question) patch.question = q.question;
+        if (r.long_form !== Boolean(q.long_form)) patch.long_form = Boolean(q.long_form);
+        const answer = normalizeAnswer(q.field, r.answer);
+        if (answer != null) patch.answer = answer;
+        return Object.keys(patch).length ? [{ id: r.id, patch }] : [];
       });
-      if (stale.length) {
-        await Promise.all(
-          stale.map((r) => db.from("answers").update({ question: SEED[r.key].question, long_form: Boolean(SEED[r.key].long_form) }).eq("id", r.id)),
-        );
-        list = list.map((r) => (SEED[r.key] ? { ...r, question: SEED[r.key].question, long_form: Boolean(SEED[r.key].long_form) } : r));
+      if (patches.length) {
+        await Promise.all(patches.map(({ id, patch }) => db.from("answers").update(patch).eq("id", id)));
+        const byId = Object.fromEntries(patches.map((p) => [p.id, p.patch]));
+        list = list.map((r) => (byId[r.id] ? { ...r, ...byId[r.id] } : r));
       }
       setRows(list);
       // Open the first section that still has blanks

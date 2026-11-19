@@ -19,6 +19,32 @@ export const fieldRank = (field?: Field, long?: boolean) => (long ? 2 : field?.k
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const opt = (o: Option) => (Array.isArray(o) ? { value: o[0], label: o[1] } : { value: o, label: o });
 
+/**
+ * Convert an older free-text answer to the new control's format when it's unambiguous
+ * ("25lpa" → "25", "yes" → "Yes", "30 Days" → "30 days"). Returns null when nothing to change.
+ */
+export function normalizeAnswer(field: Field | undefined, value: string): string | null {
+  const v = value.trim();
+  if (!field || !v) return null;
+  if (field.kind === "number") {
+    if (!Number.isNaN(Number(v))) return null;
+    const m = /^(\d+(?:\.\d+)?)\s*(?:lpa|lakhs?|lacs?|l|years?|yrs?|y|%)?\.?$/i.exec(v);
+    return m ? m[1] : null;
+  }
+  const pick = (list: string[]) => {
+    const hit = list.find((o) => o.toLowerCase() === v.toLowerCase());
+    return hit && hit !== value ? hit : null;
+  };
+  if (field.kind === "select") return pick(field.options.map((o) => opt(o).value));
+  if (field.kind === "choice") return pick(field.options);
+  if (field.kind === "multi") {
+    const parts = splitList(v).map((p) => field.options.find((o) => o.toLowerCase() === p.toLowerCase()) ?? p);
+    const next = parts.join(", ");
+    return next !== value ? next : null;
+  }
+  return null;
+}
+
 /** Whether a stored answer fits the control, so an older free-text answer is never silently hidden. */
 function fits(field: Field, value: string) {
   if (!value.trim()) return true;
