@@ -12,6 +12,9 @@ import LoginScreen from "./LoginScreen";
 const SessionCtx = createContext<Session | null>(null);
 export const useSession = () => useContext(SessionCtx);
 
+// Pages anyone can read without signing in.
+const PUBLIC_PATHS = ["/privacy", "/terms"];
+
 const NAV = [
   { href: "/", label: "Jobs", icon: Briefcase },
   { href: "/answers", label: "Profile", icon: UserCircle },
@@ -52,6 +55,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   } else if (!supabaseConfigured()) {
     body = <SetupNotice />;
+  } else if (!session && PUBLIC_PATHS.includes(pathname)) {
+    body = children; // Privacy & Terms are readable without signing in
   } else if (!session) {
     body = <LoginScreen />;
   } else {

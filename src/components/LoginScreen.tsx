@@ -78,10 +78,21 @@ export default function LoginScreen() {
             </Button>
           </form>
         </Card.Content>
-        <Card.Footer>
+        <Card.Footer className="flex-col items-start gap-2">
           <Button variant="ghost" size="sm" onPress={() => setMode(mode === "signin" ? "signup" : "signin")}>
             {mode === "signin" ? "New here? Create an account" : "Have an account? Sign in"}
           </Button>
+          <p className="text-xs text-muted">
+            By continuing you agree to the{" "}
+            <a href="/terms" className="text-accent hover:underline">
+              Terms
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" className="text-accent hover:underline">
+              Privacy policy
+            </a>
+            .
+          </p>
         </Card.Footer>
       </Card>
     </div>
